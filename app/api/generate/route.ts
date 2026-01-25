@@ -1,90 +1,87 @@
 // app/api/generate/route.ts
 import { NextResponse } from "next/server";
 
-export const runtime = "nodejs"; // important for file/form handling on Vercel
+export const runtime = "nodejs"; // important for file handling
 
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+function fileTypeOk(file: File) {
+  // Allow jpg/png/webp
+  const okTypes = ["image/jpeg", "image/png", "image/webp"];
+  return okTypes.includes(file.type);
+}
+
+async function fileToBase64(file: File) {
+  const arrayBuffer = await file.arrayBuffer();
+  const base64 = Buffer.from(arrayBuffer).toString("base64");
+  return { base64, mime: file.type, name: file.name };
+}
 
 export async function POST(req: Request) {
   try {
-    if (!OPENAI_API_KEY) {
+    const form = await req.formData();
+
+    const accessory = form.get("accessory") as File | null;
+    const material = form.get("material") as File | null;
+    const sole = form.get("sole") as File | null;
+    const inspiration = form.get("inspiration") as File | null;
+    const prompt = (form.get("prompt") as string | null) ?? "";
+
+    // Required
+    if (!accessory || !material) {
       return NextResponse.json(
-        { error: "Missing OPENAI_API_KEY env var on server." },
-        { status: 500 }
+        { error: "Please upload Accessory and Material." },
+        { status: 400 }
       );
     }
 
-    // Expecting multipart/form-data from the browser
-    const incoming = await req.formData();
+    // Type validation (this is where your WEBP likely fails today)
+    const files = [
+      ["accessory", accessory],
+      ["material", material],
+      ["sole", sole],
+      ["inspiration", inspiration],
+    ] as const;
 
-    const prompt = (incoming.get("prompt") || "").toString().trim();
-    if (!prompt) {
-      return NextResponse.json({ error: "Missing prompt." }, { status: 400 });
+    for (const [key, f] of files) {
+      if (!f) continue;
+      if (!(f instanceof File)) {
+        return NextResponse.json(
+          { error: `${key} is not a valid file.` },
+          { status: 400 }
+        );
+      }
+      if (!fileTypeOk(f)) {
+        return NextResponse.json(
+          {
+            error: `${key} must be JPG, PNG, or WEBP. Got: ${f.type || "unknown"}`,
+          },
+          { status: 400 }
+        );
+      }
     }
 
-    // Optional images (0–4)
-    const keys = ["accessory", "material", "sole", "inspiration"] as const;
-    const images: File[] = [];
+    // Convert files (you can pass these into whatever OpenAI call you already have)
+    const accessoryB64 = await fileToBase64(accessory);
+    const materialB64 = await fileToBase64(material);
+    const soleB64 = sole ? await fileToBase64(sole) : null;
+    const inspirationB64 = inspiration ? await fileToBase64(inspiration) : null;
 
-    for (const k of keys) {
-      const v = incoming.get(k);
-      if (v && v instanceof File && v.size > 0) images.push(v);
-    }
-
-    // Build OpenAI Images Edit request (supports multiple images)
-    const body = new FormData();
-    body.append("model", "gpt-image-1.5");
-    body.append("prompt", prompt);
-    body.append("n", "1");
-    body.append("size", "1024x1024");
-
-    // If you want higher fidelity when using gpt-image-1 (not 1.5), you can set:
-    // body.append("input_fidelity", "high");
-
-    // Docs accept image as array; using image[] works (curl examples show this)
-    for (const img of images) {
-      body.append("image[]", img, img.name || "input.png");
-    }
-
-    const r = await fetch("https://api.openai.com/v1/images/edits", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
-      },
-      body,
-    });
-
-    const requestId = r.headers.get("x-request-id") || undefined;
-    const data = await r.json();
-
-    if (!r.ok) {
-      return NextResponse.json(
-        {
-          error:
-            data?.error?.message ||
-            data?.error ||
-            "OpenAI request failed (see server logs).",
-          requestId,
-        },
-        { status: r.status }
-      );
-    }
-
-    const b64 = data?.data?.[0]?.b64_json;
-    if (!b64) {
-      return NextResponse.json(
-        { error: "No image returned from OpenAI.", requestId },
-        { status: 500 }
-      );
-    }
-
+    // ✅ TEMP: return debug payload so you can confirm inputs on Vercel
+    // Once confirmed, replace this block with your OpenAI call.
     return NextResponse.json({
-      imageBase64: b64,
-      requestId,
+      ok: true,
+      prompt,
+      received: {
+        accessory: { name: accessoryB64.name, mime: accessoryB64.mime, size: accessory.size },
+        material: { name: materialB64.name, mime: materialB64.mime, size: material.size },
+        sole: soleB64 ? { name: soleB64.name, mime: soleB64.mime, size: sole!.size } : null,
+        inspiration: inspirationB64
+          ? { name: inspirationB64.name, mime: inspirationB64.mime, size: inspiration!.size }
+          : null,
+      },
     });
   } catch (err: any) {
     return NextResponse.json(
-      { error: err?.message || "Server error." },
+      { error: err?.message || "Server error" },
       { status: 500 }
     );
   }
