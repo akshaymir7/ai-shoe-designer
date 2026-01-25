@@ -1,113 +1,89 @@
 // app/api/generate/route.ts
+import OpenAI, { toFile } from "openai";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
-// Increase if you generate large images / slower requests
-export const maxDuration = 60;
+const client = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
-function asString(v: unknown) {
-  return typeof v === "string" ? v : "";
+function badRequest(message: string, extra?: Record<string, unknown>) {
+  return NextResponse.json(
+    { ok: false, error: message, ...(extra ?? {}) },
+    { status: 400 }
+  );
+}
+
+async function fileToOpenAIFile(f: File) {
+  const ab = await f.arrayBuffer();
+  const buf = Buffer.from(ab);
+  return toFile(buf, f.name || "image", { type: f.type || "image/png" });
 }
 
 export async function POST(req: Request) {
   try {
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json(
-        { ok: false, error: "Missing OPENAI_API_KEY on server." },
-        { status: 500 }
-      );
+    if (!process.env.OPENAI_API_KEY) {
+      return badRequest("Missing OPENAI_API_KEY on server (Vercel Environment Variables).");
     }
 
     const form = await req.formData();
 
-    // These are the four uploads from the UI
-    const accessory = form.get("accessory");
-    const material = form.get("material");
-    const sole = form.get("sole");
-    const inspiration = form.get("inspiration");
+    const accessory = form.get("accessory") as File | null;
+    const material = form.get("material") as File | null;
+    const sole = form.get("sole") as File | null;
+    const inspiration = form.get("inspiration") as File | null;
 
-    const prompt = asString(form.get("prompt"));
+    const prompt = String(form.get("prompt") ?? "").trim();
+    const nRaw = Number(form.get("n") ?? 4);
+    const n = Number.isFinite(nRaw) ? Math.min(Math.max(nRaw, 1), 8) : 4;
 
-    // Require at least accessory + material
-    if (!(accessory instanceof File) || !(material instanceof File)) {
-      return NextResponse.json(
-        { ok: false, error: "Accessory + Material are required." },
-        { status: 400 }
-      );
+    if (!accessory || !material) {
+      return badRequest("Accessory + Material are required.");
     }
 
-    // Collect up to 4 images (OpenAI supports arrays of images for edits).  [oai_citation:1‡OpenAI Platform](https://platform.openai.com/docs/api-reference/images)
-    const images: File[] = [accessory, material];
-    if (sole instanceof File) images.push(sole);
-    if (inspiration instanceof File) images.push(inspiration);
+    // Build the image array (2 required, 2 optional)
+    const imageFiles: File[] = [accessory, material];
+    if (sole) imageFiles.push(sole);
+    if (inspiration) imageFiles.push(inspiration);
 
-    // Build OpenAI multipart request
-    const oai = new FormData();
-    oai.append("model", "gpt-image-1.5");
-    oai.append(
-      "prompt",
-      prompt?.trim() ||
-        "Create a photorealistic shoe design using the reference images. Keep it realistic, studio product photo, clean background."
-    );
-    oai.append("size", "1024x1024");
+    const imagesForAPI = await Promise.all(imageFiles.map(fileToOpenAIFile));
 
-    // IMPORTANT: use image[] for multiple images (per docs).  [oai_citation:2‡OpenAI Platform](https://platform.openai.com/docs/api-reference/images)
-    for (const img of images) {
-      oai.append("image[]", img, img.name || "ref.png");
-    }
+    // IMPORTANT:
+    // Variations endpoint only supports dall-e-2.
+    // For "variations" here we generate multiple outputs (n) from the same edit request.
+    const finalPrompt =
+      prompt.length > 0
+        ? prompt
+        : "Create a clean, realistic studio product photo of a shoe design that combines the uploaded images. Keep materials faithful. White or neutral background.";
 
-    const resp = await fetch("https://api.openai.com/v1/images/edits", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: oai,
+    const rsp = await client.images.edit({
+      model: "gpt-image-1.5",
+      image: imagesForAPI,
+      prompt: finalPrompt,
+      n,
+      size: "1024x1024",
     });
 
-    const rawText = await resp.text();
+    const dataUrls = (rsp.data ?? [])
+      .map((d) => d.b64_json)
+      .filter(Boolean)
+      .map((b64) => `data:image/png;base64,${b64}`);
 
-    if (!resp.ok) {
-      // Return the raw OpenAI error text to help debugging
+    if (dataUrls.length === 0) {
       return NextResponse.json(
-        {
-          ok: false,
-          error: `OpenAI error (${resp.status}): ${rawText}`,
-        },
-        { status: 500 }
+        { ok: false, error: "No image returned from API." },
+        { status: 502 }
       );
     }
 
-    // Parse JSON safely
-    let data: any;
-    try {
-      data = JSON.parse(rawText);
-    } catch {
-      return NextResponse.json(
-        { ok: false, error: `OpenAI returned non-JSON: ${rawText.slice(0, 300)}` },
-        { status: 500 }
-      );
-    }
-
-    const b64 = data?.data?.[0]?.b64_json;
-    if (!b64 || typeof b64 !== "string") {
-      return NextResponse.json(
-        { ok: false, error: "OpenAI response missing data[0].b64_json" },
-        { status: 500 }
-      );
-    }
-
-    // Standardized response for your frontend
     return NextResponse.json({
       ok: true,
-      imageBase64: b64,
-      imageDataUrl: `data:image/png;base64,${b64}`,
+      images: dataUrls,
     });
-  } catch (e: any) {
-    return NextResponse.json(
-      { ok: false, error: e?.message || "Unknown server error" },
-      { status: 500 }
-    );
+  } catch (err: any) {
+    // If Vercel/Next returns HTML (413 etc), the client might show "non-JSON"
+    const msg = err?.message ?? "Unknown server error";
+    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
   }
 }
