@@ -1,87 +1,108 @@
 // app/api/generate/route.ts
-import { NextResponse } from "next/server";
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-export const runtime = "nodejs"; // important for file handling
-
-function fileTypeOk(file: File) {
-  // Allow jpg/png/webp
-  const okTypes = ["image/jpeg", "image/png", "image/webp"];
-  return okTypes.includes(file.type);
-}
-
-async function fileToBase64(file: File) {
-  const arrayBuffer = await file.arrayBuffer();
-  const base64 = Buffer.from(arrayBuffer).toString("base64");
-  return { base64, mime: file.type, name: file.name };
-}
+type OpenAIImageEditResponse = {
+  data?: Array<{ b64_json?: string }>;
+  error?: { message?: string; type?: string; code?: string };
+};
 
 export async function POST(req: Request) {
   try {
-    const form = await req.formData();
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      return Response.json(
+        { error: "Missing OPENAI_API_KEY on the server (Vercel env or .env.local)." },
+        { status: 500 }
+      );
+    }
 
-    const accessory = form.get("accessory") as File | null;
-    const material = form.get("material") as File | null;
-    const sole = form.get("sole") as File | null;
-    const inspiration = form.get("inspiration") as File | null;
-    const prompt = (form.get("prompt") as string | null) ?? "";
+    const incoming = await req.formData();
 
-    // Required
-    if (!accessory || !material) {
-      return NextResponse.json(
-        { error: "Please upload Accessory and Material." },
+    // We accept either naming style:
+    // part1..part4  OR  accessory/material/sole/inspiration
+    const prompt =
+      (incoming.get("prompt")?.toString() ?? "").trim() ||
+      "Design a photorealistic shoe using the provided reference images.";
+
+    const pickFile = (keys: string[]) => {
+      for (const k of keys) {
+        const v = incoming.get(k);
+        if (v instanceof File && v.size > 0) return v;
+      }
+      return null;
+    };
+
+    const part1 = pickFile(["part1", "accessory"]);
+    const part2 = pickFile(["part2", "material"]);
+    const part3 = pickFile(["part3", "sole"]);
+    const part4 = pickFile(["part4", "inspiration"]);
+
+    // Require at least Accessory + Material (your UI requirement)
+    if (!part1 || !part2) {
+      return Response.json(
+        { error: "Please upload Accessory (part1) and Material (part2)." },
         { status: 400 }
       );
     }
 
-    // Type validation (this is where your WEBP likely fails today)
-    const files = [
-      ["accessory", accessory],
-      ["material", material],
-      ["sole", sole],
-      ["inspiration", inspiration],
-    ] as const;
+    // Build OpenAI multipart form-data for /v1/images/edits
+    // Multiple input images are sent as image[] fields.  [oai_citation:0‡OpenAI Platform](https://platform.openai.com/docs/guides/image-generation)
+    const fd = new FormData();
+    fd.append("model", "gpt-image-1"); // GPT Image model  [oai_citation:1‡OpenAI Platform](https://platform.openai.com/docs/guides/image-generation)
+    fd.append("prompt", prompt);
 
-    for (const [key, f] of files) {
-      if (!f) continue;
-      if (!(f instanceof File)) {
-        return NextResponse.json(
-          { error: `${key} is not a valid file.` },
-          { status: 400 }
-        );
-      }
-      if (!fileTypeOk(f)) {
-        return NextResponse.json(
-          {
-            error: `${key} must be JPG, PNG, or WEBP. Got: ${f.type || "unknown"}`,
-          },
-          { status: 400 }
-        );
-      }
+    // Optional knobs (safe defaults)
+    fd.append("size", "1024x1024");
+    // fd.append("background", "auto");
+    // fd.append("n", "1");
+
+    // Order matters a bit (first image is the “base” in some edit flows)
+    fd.append("image[]", part1);
+    fd.append("image[]", part2);
+    if (part3) fd.append("image[]", part3);
+    if (part4) fd.append("image[]", part4);
+
+    const r = await fetch("https://api.openai.com/v1/images/edits", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: fd,
+    });
+
+    const requestId = r.headers.get("x-request-id") || undefined;
+
+    const json = (await r.json()) as OpenAIImageEditResponse;
+
+    if (!r.ok) {
+      return Response.json(
+        {
+          error: json?.error?.message || `OpenAI error (status ${r.status})`,
+          requestId,
+        },
+        { status: r.status }
+      );
     }
 
-    // Convert files (you can pass these into whatever OpenAI call you already have)
-    const accessoryB64 = await fileToBase64(accessory);
-    const materialB64 = await fileToBase64(material);
-    const soleB64 = sole ? await fileToBase64(sole) : null;
-    const inspirationB64 = inspiration ? await fileToBase64(inspiration) : null;
+    const imageBase64 = json?.data?.[0]?.b64_json;
 
-    // ✅ TEMP: return debug payload so you can confirm inputs on Vercel
-    // Once confirmed, replace this block with your OpenAI call.
-    return NextResponse.json({
-      ok: true,
-      prompt,
-      received: {
-        accessory: { name: accessoryB64.name, mime: accessoryB64.mime, size: accessory.size },
-        material: { name: materialB64.name, mime: materialB64.mime, size: material.size },
-        sole: soleB64 ? { name: soleB64.name, mime: soleB64.mime, size: sole!.size } : null,
-        inspiration: inspirationB64
-          ? { name: inspirationB64.name, mime: inspirationB64.mime, size: inspiration!.size }
-          : null,
-      },
-    });
+    if (!imageBase64 || typeof imageBase64 !== "string") {
+      return Response.json(
+        {
+          error:
+            "OpenAI response did not include base64 image data (b64_json). Check model/endpoint response shape.",
+          requestId,
+        },
+        { status: 502 }
+      );
+    }
+
+    // IMPORTANT: Always return this exact shape for your UI
+    return Response.json({ imageBase64, requestId });
   } catch (err: any) {
-    return NextResponse.json(
-      { error: err?.message || "Server error" },
+    return Response.json(
+      { error: err?.message || "Unexpected server error." },
       { status: 500 }
     );
   }
