@@ -1,3 +1,4 @@
+// components/UploadBox.tsx
 "use client";
 
 import React, { useId } from "react";
@@ -5,54 +6,35 @@ import React, { useId } from "react";
 type Props = {
   title: string;
   subtitle?: string;
-  value: File | null;
-  onChange: (f: File | null) => void;
-  optional?: boolean;
+  file: File | null;
+  onChange: (file: File | null) => void;
+  required?: boolean;
 };
 
-export default function UploadBox({ title, subtitle, value, onChange, optional }: Props) {
+export default function UploadBox({ title, subtitle, file, onChange, required }: Props) {
   const id = useId();
-  const selected = !!value;
 
   return (
     <div
       style={{
-        background: "var(--card)",
-        border: selected ? "1px solid rgba(37, 99, 235, 0.55)" : "1px solid var(--border)",
-        borderRadius: 16,
+        border: "1px solid rgba(0,0,0,0.12)",
+        borderRadius: 14,
         padding: 16,
-        boxShadow: selected ? "var(--shadow2)" : "var(--shadow)",
-        transition: "transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease",
-      }}
-      onMouseEnter={(e) => {
-        (e.currentTarget as HTMLDivElement).style.transform = "translateY(-2px)";
-      }}
-      onMouseLeave={(e) => {
-        (e.currentTarget as HTMLDivElement).style.transform = "translateY(0px)";
+        background: "white",
+        boxShadow: "0 1px 0 rgba(0,0,0,0.04)",
       }}
     >
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10 }}>
-        <div style={{ fontWeight: 700, fontSize: 14 }}>
-          {title} {optional ? <span style={{ color: "var(--muted)", fontWeight: 500 }}>(optional)</span> : null}
-        </div>
-        {selected ? (
-          <span
-            style={{
-              fontSize: 12,
-              color: "#0f172a",
-              background: "rgba(37, 99, 235, 0.10)",
-              border: "1px solid rgba(37, 99, 235, 0.18)",
-              padding: "3px 8px",
-              borderRadius: 999,
-            }}
-          >
-            Selected
-          </span>
-        ) : null}
+      <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+        <div style={{ fontWeight: 700, fontSize: 15 }}>{title}</div>
+        {required ? (
+          <span style={{ fontSize: 12, opacity: 0.7 }}>(required)</span>
+        ) : (
+          <span style={{ fontSize: 12, opacity: 0.7 }}>(optional)</span>
+        )}
       </div>
 
       {subtitle ? (
-        <div style={{ marginTop: 6, color: "var(--muted)", fontSize: 12 }}>{subtitle}</div>
+        <div style={{ marginTop: 4, fontSize: 12, opacity: 0.7 }}>{subtitle}</div>
       ) : null}
 
       <label
@@ -60,13 +42,11 @@ export default function UploadBox({ title, subtitle, value, onChange, optional }
         style={{
           display: "block",
           marginTop: 12,
-          borderRadius: 14,
-          border: selected ? "1px dashed rgba(37, 99, 235, 0.55)" : "1px dashed var(--border2)",
+          border: "1px dashed rgba(0,0,0,0.25)",
+          borderRadius: 12,
           padding: 14,
           cursor: "pointer",
-          background: selected ? "rgba(37, 99, 235, 0.06)" : "rgba(2, 6, 23, 0.02)",
-          transition: "background 140ms ease, border-color 140ms ease",
-          outline: "none",
+          userSelect: "none",
         }}
       >
         <input
@@ -80,19 +60,14 @@ export default function UploadBox({ title, subtitle, value, onChange, optional }
           }}
         />
 
-        {!selected ? (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-            <span style={{ fontSize: 13, color: "var(--muted)" }}>Click to upload</span>
-            <span style={{ fontSize: 12, color: "var(--muted)" }}>PNG/JPG</span>
-          </div>
+        {!file ? (
+          <div style={{ fontSize: 13, opacity: 0.8 }}>Click to upload</div>
         ) : (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 650, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {value!.name}
-              </div>
-              <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>
-                {(value!.size / 1024).toFixed(0)} KB
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+            <div style={{ fontSize: 13 }}>
+              <div style={{ fontWeight: 600 }}>{file.name}</div>
+              <div style={{ fontSize: 12, opacity: 0.7 }}>
+                {(file.size / 1024 / 1024).toFixed(2)} MB
               </div>
             </div>
 
@@ -103,9 +78,9 @@ export default function UploadBox({ title, subtitle, value, onChange, optional }
                 onChange(null);
               }}
               style={{
-                border: "1px solid var(--border)",
+                border: "1px solid rgba(0,0,0,0.15)",
                 background: "white",
-                borderRadius: 12,
+                borderRadius: 10,
                 padding: "8px 10px",
                 cursor: "pointer",
                 fontSize: 12,
