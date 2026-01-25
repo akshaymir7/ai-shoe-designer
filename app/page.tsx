@@ -1,66 +1,57 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import UploadBox from "../components/UploadBox";
 
 type GenerateResponse = {
   imageBase64?: string;
   error?: string;
-  debug?: any;
 };
 
 export default function Page() {
-  const [accessory, setAccessory] = useState<File | null>(null);
-  const [material, setMaterial] = useState<File | null>(null);
-  const [sole, setSole] = useState<File | null>(null);
-  const [inspiration, setInspiration] = useState<File | null>(null);
+  const [part1, setPart1] = useState<File | null>(null); // accessory (required)
+  const [part2, setPart2] = useState<File | null>(null); // material (required)
+  const [part3, setPart3] = useState<File | null>(null); // sole (optional)
+  const [part4, setPart4] = useState<File | null>(null); // inspiration (optional)
 
-  const [prompt, setPrompt] = useState<string>(
-    "Design a premium fashion slipper using the uploaded accessory + material. Keep it product-photo style on a clean background."
-  );
-
+  const [prompt, setPrompt] = useState<string>("");
   const [loading, setLoading] = useState(false);
-  const [resultImg, setResultImg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [resultBase64, setResultBase64] = useState<string | null>(null);
 
-  const canGenerate = useMemo(() => {
-    return !!accessory && !!material && !loading;
-  }, [accessory, material, loading]);
+  const canGenerate = useMemo(() => !!part1 && !!part2 && !loading, [part1, part2, loading]);
 
   async function onGenerate() {
     setError(null);
-    setResultImg(null);
+    setResultBase64(null);
 
-    if (!accessory || !material) {
+    if (!part1 || !part2) {
       setError("Accessory and Material are required.");
       return;
     }
 
-    setLoading(true);
     try {
+      setLoading(true);
+
       const fd = new FormData();
-      fd.append("accessory", accessory);
-      fd.append("material", material);
-      if (sole) fd.append("sole", sole);
-      if (inspiration) fd.append("inspiration", inspiration);
-      fd.append("prompt", prompt);
+      fd.append("accessory", part1);
+      fd.append("material", part2);
+      if (part3) fd.append("sole", part3);
+      if (part4) fd.append("inspiration", part4);
+      fd.append("prompt", prompt || "");
 
       const res = await fetch("/api/generate", {
         method: "POST",
         body: fd,
       });
 
-      const data = (await res.json()) as GenerateResponse;
+      const json = (await res.json()) as GenerateResponse;
 
-      if (!res.ok || data.error) {
-        throw new Error(data.error || "Generate failed.");
+      if (!res.ok || json.error || !json.imageBase64) {
+        throw new Error(json.error || `Request failed (${res.status})`);
       }
 
-      if (!data.imageBase64) {
-        throw new Error("No image returned from API.");
-      }
-
-      setResultImg(data.imageBase64);
+      setResultBase64(json.imageBase64);
     } catch (e: any) {
       setError(e?.message || "Something went wrong.");
     } finally {
@@ -69,158 +60,98 @@ export default function Page() {
   }
 
   return (
-    <div style={{ maxWidth: 1100, margin: "40px auto", padding: 20 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
-        <div>
-          <h1 style={{ fontSize: 34, margin: 0, letterSpacing: -0.5 }}>
-            AI Shoe Designer
-          </h1>
-          <div style={{ color: "#666", marginTop: 6 }}>
-            Upload inputs → Generate (pipeline test). Next we switch API to OpenAI.
-          </div>
-        </div>
-      </div>
+    <main className="page">
+      <header className="header">
+        <h1 className="h1">AI Shoe Designer</h1>
+        <p className="sub">
+          Upload your inputs, add a prompt, then Generate.
+        </p >
+      </header>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: 16,
-          marginTop: 22,
-        }}
-      >
+      <section className="grid">
         <UploadBox
           title="1) Accessory"
           subtitle="Buckle / logo / ornament"
-          file={accessory}
-          onFile={setAccessory}
-          required
+          file={part1}
+          onFile={setPart1}
         />
 
         <UploadBox
           title="2) Material"
           subtitle="Leather / fabric / texture"
-          file={material}
-          onFile={setMaterial}
-          required
+          file={part2}
+          onFile={setPart2}
         />
 
         <UploadBox
           title="3) Sole / bottom"
           subtitle="Sole reference image"
-          file={sole}
-          onFile={setSole}
+          file={part3}
+          onFile={setPart3}
+          optional
         />
 
         <UploadBox
           title="4) Inspiration"
           subtitle="Style reference"
-          file={inspiration}
-          onFile={setInspiration}
+          file={part4}
+          onFile={setPart4}
+          optional
         />
-      </div>
+      </section>
 
-      <div
-        style={{
-          marginTop: 18,
-          padding: 16,
-          border: "1px solid #e6e6e6",
-          borderRadius: 14,
-          background: "#fff",
-          boxShadow: "0 1px 8px rgba(0,0,0,0.04)",
-        }}
-      >
-        <div style={{ fontWeight: 700, marginBottom: 8 }}>Prompt</div>
-        <textarea
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          rows={4}
-          style={{
-            width: "100%",
-            resize: "vertical",
-            borderRadius: 12,
-            border: "1px solid #dcdcdc",
-            padding: 12,
-            fontSize: 14,
-            outline: "none",
-          }}
-        />
+      <section className="panel">
+        <div className="row">
+          <div className="grow">
+            <label className="label">Prompt (optional)</label>
+            <textarea
+              className="textarea"
+              placeholder={`Example: "Men's cork footbed slide sandal, premium look, studio product photo, neutral background."`}
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              rows={4}
+            />
+          </div>
 
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 12,
-            marginTop: 12,
-          }}
-        >
-          <button
-            onClick={onGenerate}
-            disabled={!canGenerate}
-            style={{
-              padding: "10px 16px",
-              borderRadius: 12,
-              border: "1px solid #111",
-              background: canGenerate ? "#111" : "#777",
-              color: "#fff",
-              cursor: canGenerate ? "pointer" : "not-allowed",
-              fontWeight: 700,
-            }}
-          >
-            {loading ? "Generating..." : "Generate"}
-          </button>
+          <div className="actions">
+            <button
+              className="primaryBtn"
+              type="button"
+              onClick={onGenerate}
+              disabled={!canGenerate}
+            >
+              {loading ? "Generating..." : "Generate"}
+            </button>
 
-          <div style={{ fontSize: 12, color: "#666" }}>
-            Required: Accessory + Material
+            <div className="mutedSmall">
+              Required: Accessory + Material
+            </div>
           </div>
         </div>
 
-        {error ? (
-          <div style={{ marginTop: 12, color: "#b00020", fontSize: 13 }}>
-            {error}
+        {error ? <div className="error">{error}</div> : null}
+
+        {resultBase64 ? (
+          <div className="result">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              className="resultImg"
+              src={`data:image/png;base64,${resultBase64}`}
+              alt="Generated shoe design"
+            />
+            <a
+              className="ghostBtn"
+              href= "shoe-design.png"
+            >
+              Download PNG
+            </a >
           </div>
         ) : null}
-      </div>
+      </section>
 
-      <div style={{ marginTop: 18 }}>
-        <div style={{ fontWeight: 700, marginBottom: 10 }}>Result</div>
-        <div
-          style={{
-            border: "1px solid #e6e6e6",
-            borderRadius: 14,
-            background: "#fff",
-            boxShadow: "0 1px 8px rgba(0,0,0,0.04)",
-            padding: 14,
-            minHeight: 240,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          {resultImg ? (
-            <img
-              src={resultImg}
-              alt="result"
-              style={{
-                width: "100%",
-                maxHeight: 520,
-                objectFit: "contain",
-                borderRadius: 12,
-                background: "#fafafa",
-              }}
-            />
-          ) : (
-            <div style={{ color: "#888" }}>
-              No result yet. Upload files and click Generate.
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div style={{ marginTop: 18, fontSize: 12, color: "#666" }}>
-        Note: right now the API returns a “pipeline test image” so we confirm
-        upload + API + UI. Next step we replace it with OpenAI generation.
-      </div>
-    </div>
+      <footer className="footer mutedSmall">
+        Tip: If output looks off, add a stronger prompt like “studio product photo, white background, realistic materials”.
+      </footer>
+    </main>
   );
 }
