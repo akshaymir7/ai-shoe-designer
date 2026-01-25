@@ -17,46 +17,61 @@ export default function UploadBox({
 }: UploadBoxProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selected = e.target.files?.[0] || null;
-    onFile(selected);
-  };
+  const previewUrl = file ? URL.createObjectURL(file) : null;
 
   return (
     <div
       style={{
         border: "1px dashed #ccc",
         borderRadius: 12,
-        padding: 20,
+        padding: 16,
         marginBottom: 16,
+        cursor: "pointer",
         background: "#fafafa",
       }}
+      onClick={() => inputRef.current?.click()}
     >
       <strong>{title}</strong>
-      <p style={{ fontSize: 12, color: "#666", marginBottom: 12 }}>
+      <div style={{ fontSize: 12, color: "#666", marginBottom: 8 }}>
         {subtitle}
-      </p >
+      </div>
 
-      {file ? (
+      {previewUrl ? (
         <img
-          src={URL.createObjectURL(file)}
+          src={previewUrl}
           alt="preview"
           style={{
-            width: 160,
-            height: 160,
-            objectFit: "cover",
+            width: "100%",
+            maxHeight: 180,
+            objectFit: "contain",
             borderRadius: 8,
-            display: "block",
-            marginBottom: 12,
+            background: "#fff",
           }}
         />
-      ) : null}
+      ) : (
+        <div
+          style={{
+            height: 120,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "#999",
+            fontSize: 14,
+          }}
+        >
+          Click to upload
+        </div>
+      )}
 
       <input
         ref={inputRef}
         type="file"
         accept="image/*"
-        onChange={handleChange}
+        hidden
+        onChange={(e) => {
+          const f = e.target.files?.[0] || null;
+          onFile(f);
+        }}
       />
     </div>
   );

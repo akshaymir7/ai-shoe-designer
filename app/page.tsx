@@ -10,9 +10,11 @@ export default function Page() {
   const [part4, setPart4] = useState<File | null>(null);
 
   return (
-    <div style={{ padding: 40, maxWidth: 900 }}>
-      <h1>AI Shoe Designer</h1>
-      <p>Upload inputs (thumbnails enabled)</p >
+    <div style={{ maxWidth: 900, margin: "40px auto", padding: 20 }}>
+      <h1 style={{ fontSize: 28, marginBottom: 8 }}>AI Shoe Designer</h1>
+      <p style={{ color: "#666", marginBottom: 24 }}>
+        Upload inputs (thumbnails enabled)
+      </p >
 
       <UploadBox
         title="1) Accessory"
