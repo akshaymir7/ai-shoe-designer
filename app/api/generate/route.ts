@@ -1,108 +1,112 @@
 // app/api/generate/route.ts
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
+import { NextResponse } from "next/server";
 
-type OpenAIImageEditResponse = {
-  data?: Array<{ b64_json?: string }>;
-  error?: { message?: string; type?: string; code?: string };
-};
+export const runtime = "nodejs";
+
+// Increase if you generate large images / slower requests
+export const maxDuration = 60;
+
+function asString(v: unknown) {
+  return typeof v === "string" ? v : "";
+}
 
 export async function POST(req: Request) {
   try {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
-      return Response.json(
-        { error: "Missing OPENAI_API_KEY on the server (Vercel env or .env.local)." },
+      return NextResponse.json(
+        { ok: false, error: "Missing OPENAI_API_KEY on server." },
         { status: 500 }
       );
     }
 
-    const incoming = await req.formData();
+    const form = await req.formData();
 
-    // We accept either naming style:
-    // part1..part4  OR  accessory/material/sole/inspiration
-    const prompt =
-      (incoming.get("prompt")?.toString() ?? "").trim() ||
-      "Design a photorealistic shoe using the provided reference images.";
+    // These are the four uploads from the UI
+    const accessory = form.get("accessory");
+    const material = form.get("material");
+    const sole = form.get("sole");
+    const inspiration = form.get("inspiration");
 
-    const pickFile = (keys: string[]) => {
-      for (const k of keys) {
-        const v = incoming.get(k);
-        if (v instanceof File && v.size > 0) return v;
-      }
-      return null;
-    };
+    const prompt = asString(form.get("prompt"));
 
-    const part1 = pickFile(["part1", "accessory"]);
-    const part2 = pickFile(["part2", "material"]);
-    const part3 = pickFile(["part3", "sole"]);
-    const part4 = pickFile(["part4", "inspiration"]);
-
-    // Require at least Accessory + Material (your UI requirement)
-    if (!part1 || !part2) {
-      return Response.json(
-        { error: "Please upload Accessory (part1) and Material (part2)." },
+    // Require at least accessory + material
+    if (!(accessory instanceof File) || !(material instanceof File)) {
+      return NextResponse.json(
+        { ok: false, error: "Accessory + Material are required." },
         { status: 400 }
       );
     }
 
-    // Build OpenAI multipart form-data for /v1/images/edits
-    // Multiple input images are sent as image[] fields.  [oai_citation:0‡OpenAI Platform](https://platform.openai.com/docs/guides/image-generation)
-    const fd = new FormData();
-    fd.append("model", "gpt-image-1"); // GPT Image model  [oai_citation:1‡OpenAI Platform](https://platform.openai.com/docs/guides/image-generation)
-    fd.append("prompt", prompt);
+    // Collect up to 4 images (OpenAI supports arrays of images for edits).  [oai_citation:1‡OpenAI Platform](https://platform.openai.com/docs/api-reference/images)
+    const images: File[] = [accessory, material];
+    if (sole instanceof File) images.push(sole);
+    if (inspiration instanceof File) images.push(inspiration);
 
-    // Optional knobs (safe defaults)
-    fd.append("size", "1024x1024");
-    // fd.append("background", "auto");
-    // fd.append("n", "1");
+    // Build OpenAI multipart request
+    const oai = new FormData();
+    oai.append("model", "gpt-image-1.5");
+    oai.append(
+      "prompt",
+      prompt?.trim() ||
+        "Create a photorealistic shoe design using the reference images. Keep it realistic, studio product photo, clean background."
+    );
+    oai.append("size", "1024x1024");
 
-    // Order matters a bit (first image is the “base” in some edit flows)
-    fd.append("image[]", part1);
-    fd.append("image[]", part2);
-    if (part3) fd.append("image[]", part3);
-    if (part4) fd.append("image[]", part4);
+    // IMPORTANT: use image[] for multiple images (per docs).  [oai_citation:2‡OpenAI Platform](https://platform.openai.com/docs/api-reference/images)
+    for (const img of images) {
+      oai.append("image[]", img, img.name || "ref.png");
+    }
 
-    const r = await fetch("https://api.openai.com/v1/images/edits", {
+    const resp = await fetch("https://api.openai.com/v1/images/edits", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
       },
-      body: fd,
+      body: oai,
     });
 
-    const requestId = r.headers.get("x-request-id") || undefined;
+    const rawText = await resp.text();
 
-    const json = (await r.json()) as OpenAIImageEditResponse;
-
-    if (!r.ok) {
-      return Response.json(
+    if (!resp.ok) {
+      // Return the raw OpenAI error text to help debugging
+      return NextResponse.json(
         {
-          error: json?.error?.message || `OpenAI error (status ${r.status})`,
-          requestId,
+          ok: false,
+          error: `OpenAI error (${resp.status}): ${rawText}`,
         },
-        { status: r.status }
+        { status: 500 }
       );
     }
 
-    const imageBase64 = json?.data?.[0]?.b64_json;
-
-    if (!imageBase64 || typeof imageBase64 !== "string") {
-      return Response.json(
-        {
-          error:
-            "OpenAI response did not include base64 image data (b64_json). Check model/endpoint response shape.",
-          requestId,
-        },
-        { status: 502 }
+    // Parse JSON safely
+    let data: any;
+    try {
+      data = JSON.parse(rawText);
+    } catch {
+      return NextResponse.json(
+        { ok: false, error: `OpenAI returned non-JSON: ${rawText.slice(0, 300)}` },
+        { status: 500 }
       );
     }
 
-    // IMPORTANT: Always return this exact shape for your UI
-    return Response.json({ imageBase64, requestId });
-  } catch (err: any) {
-    return Response.json(
-      { error: err?.message || "Unexpected server error." },
+    const b64 = data?.data?.[0]?.b64_json;
+    if (!b64 || typeof b64 !== "string") {
+      return NextResponse.json(
+        { ok: false, error: "OpenAI response missing data[0].b64_json" },
+        { status: 500 }
+      );
+    }
+
+    // Standardized response for your frontend
+    return NextResponse.json({
+      ok: true,
+      imageBase64: b64,
+      imageDataUrl: `data:image/png;base64,${b64}`,
+    });
+  } catch (e: any) {
+    return NextResponse.json(
+      { ok: false, error: e?.message || "Unknown server error" },
       { status: 500 }
     );
   }

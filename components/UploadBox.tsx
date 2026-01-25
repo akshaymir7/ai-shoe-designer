@@ -1,76 +1,68 @@
+// components/UploadBox.tsx
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useId, useMemo } from "react";
 
 type Props = {
   title: string;
   subtitle?: string;
   file: File | null;
-  onFile: (file: File | null) => void;
+  onFile: (f: File | null) => void;
   optional?: boolean;
 };
 
 export default function UploadBox({ title, subtitle, file, onFile, optional }: Props) {
-  const inputRef = useRef<HTMLInputElement | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const id = useId();
 
-  useEffect(() => {
-    if (!file) {
-      setPreviewUrl(null);
-      return;
-    }
-    const url = URL.createObjectURL(file);
-    setPreviewUrl(url);
-    return () => URL.revokeObjectURL(url);
+  const previewUrl = useMemo(() => {
+    if (!file) return "";
+    return URL.createObjectURL(file);
   }, [file]);
 
   return (
     <div className="card">
-      <div className="cardHead">
+      <div className="cardHeader">
         <div>
           <div className="cardTitle">
             {title} {optional ? <span className="muted">(optional)</span> : null}
           </div>
-          {subtitle ? <div className="cardSubtitle">{subtitle}</div> : null}
+          {subtitle ? <div className="cardSub">{subtitle}</div> : null}
         </div>
 
         {file ? (
-          <button className="ghostBtn" type="button" onClick={() => onFile(null)}>
+          <button className="btnGhost" type="button" onClick={() => onFile(null)}>
             Remove
           </button>
         ) : null}
       </div>
 
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/*"
-        className="hiddenInput"
-        onChange={(e) => onFile(e.target.files?.[0] ?? null)}
-      />
-
-      <button
-        type="button"
-        className="drop"
-        onClick={() => inputRef.current?.click()}
-      >
-        {previewUrl ? (
-          <div className="thumbWrap">
-            {/* thumbnail */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            < img className="thumb" src={previewUrl} alt={`${title} preview`} />
+      <label className="drop" htmlFor={id}>
+        {file ? (
+          <div className="fileRow">
+            < img className="thumb" src={previewUrl} alt="preview" />
             <div className="fileMeta">
-              <div className="fileName">{file?.name}</div>
-              <div className="mutedSmall">Click to change</div>
+              <div className="fileName">{file.name}</div>
+              <div className="muted">Click to change</div>
             </div>
           </div>
         ) : (
-          <div className="dropEmpty">
-            <div className="dropTitle">Click to upload</div>
-            <div className="mutedSmall">PNG / JPG / WEBP</div>
+          <div className="empty">
+            <div className="emptyTitle">Click to upload</div>
+            <div className="muted">PNG / JPG / WEBP</div>
           </div>
         )}
-      </button>
+      </label>
+
+      <input
+        id={id}
+        className="hiddenInput"
+        type="file"
+        accept="image/png,image/jpeg,image/webp"
+        onChange={(e) => {
+          const f = e.target.files?.[0] || null;
+          onFile(f);
+        }}
+      />
     </div>
   );
 }
