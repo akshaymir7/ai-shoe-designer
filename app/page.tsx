@@ -4,9 +4,9 @@
 import React, { useMemo, useState } from "react";
 import UploadBox from "../components/UploadBox";
 
-type GenerateResult =
-  | { ok: true; imageBase64: string; imageDataUrl: string }
-  | { ok: false; error: string };
+type ApiOk = { ok: true; imageBase64: string; imageDataUrl: string };
+type ApiErr = { ok: false; error: string };
+type GenerateResult = ApiOk | ApiErr;
 
 export default function Page() {
   const [accessory, setAccessory] = useState<File | null>(null);
@@ -14,20 +14,31 @@ export default function Page() {
   const [sole, setSole] = useState<File | null>(null);
   const [inspiration, setInspiration] = useState<File | null>(null);
 
-  const [prompt, setPrompt] = useState<string>("");
+  const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string>("");
-  const [resultUrl, setResultUrl] = useState<string>("");
+  const [error, setError] = useState("");
+  const [resultUrl, setResultUrl] = useState("");
+  const [lastMeta, setLastMeta] = useState<string>("");
 
-  const canGenerate = useMemo(() => !!accessory && !!material && !loading, [
-    accessory,
-    material,
-    loading,
-  ]);
+  const canGenerate = useMemo(
+    () => !!accessory && !!material && !loading,
+    [accessory, material, loading]
+  );
+
+  function buildMeta() {
+    const names = [
+      accessory ? `Accessory: ${accessory.name}` : "",
+      material ? `Material: ${material.name}` : "",
+      sole ? `Sole: ${sole.name}` : "",
+      inspiration ? `Inspiration: ${inspiration.name}` : "",
+    ].filter(Boolean);
+    return names.join(" • ");
+  }
 
   async function onGenerate() {
     setError("");
     setResultUrl("");
+    setLastMeta("");
 
     if (!accessory || !material) {
       setError("Accessory + Material are required.");
@@ -44,16 +55,28 @@ export default function Page() {
       if (inspiration) fd.append("inspiration", inspiration);
       fd.append("prompt", prompt);
 
-      const r = await fetch("/api/generate", { method: "POST", body: fd });
-      const data = (await r.json()) as GenerateResult;
+      const r = await fetch("/api/generate", {
+        method: "POST",
+        body: fd,
+      });
 
-      if (!data.ok) {
-        setError(data.error || "Request failed.");
+      // If the route returned non-JSON (proxy errors etc.)
+      const text = await r.text();
+      let data: GenerateResult;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        throw new Error(`Server returned non-JSON (${r.status}): ${text.slice(0, 200)}`);
+      }
+
+      if (!r.ok || !data.ok) {
+        const msg = (data as ApiErr).error || `Request failed (${r.status})`;
+        setError(msg);
         return;
       }
 
-      // Always use the server-provided data URL
-      setResultUrl(data.imageDataUrl);
+      setResultUrl((data as ApiOk).imageDataUrl);
+      setLastMeta(buildMeta());
     } catch (e: any) {
       setError(e?.message || "Request failed.");
     } finally {
@@ -61,11 +84,19 @@ export default function Page() {
     }
   }
 
+  function onDownload() {
+    if (!resultUrl) return;
+    const a = document.createElement("a");
+    a.href = resultUrl;
+    a.download = `ai-shoe-${Date.now()}.png`;
+    a.click();
+  }
+
   return (
     <main className="wrap">
       <header className="header">
         <h1 className="h1">AI Shoe Designer</h1>
-        <p className="sub">Upload inputs (thumbnails enabled)</p >
+        <p className="sub">Upload references → Generate → Download</p >
       </header>
 
       <section className="grid">
@@ -103,7 +134,7 @@ export default function Page() {
           className="textarea"
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
-          placeholder="e.g. Put the buckle and upper on the sole using the material reference image. Photorealistic studio product photo."
+          placeholder="e.g. Put the buckle and upper on the sole using the material reference image. Photorealistic studio product photo. Flat lateral angle."
           rows={4}
         />
 
@@ -111,14 +142,28 @@ export default function Page() {
           <button className="btn" onClick={onGenerate} disabled={!canGenerate}>
             {loading ? "Generating..." : "Generate"}
           </button>
-          <div className="hint">Required: Accessory + Material</div>
+
+          <div className="hint">
+            Required: Accessory + Material
+            {loading ? <span className="dot"> • working…</span> : null}
+          </div>
         </div>
 
         {error ? <div className="error">{error}</div> : null}
 
         {resultUrl ? (
           <div className="result">
-            < img className="resultImg" src={resultUrl} alt="Generated result" />
+            <div className="resultHeader">
+              <div>
+                <div className="resultTitle">Result</div>
+                {lastMeta ? <div className="muted">{lastMeta}</div> : null}
+              </div>
+              <button className="btnGhost" onClick={onDownload} type="button">
+                Download PNG
+              </button>
+            </div>
+
+            < img className="resultImg" src={resultUrl} alt="Generated shoe" />
           </div>
         ) : null}
       </section>
