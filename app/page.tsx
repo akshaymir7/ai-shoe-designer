@@ -203,12 +203,11 @@ export default function Page() {
 
             <div className="cardSlot">
               <UploadBox
-                title="4) Inspiration"
-                subtitle="Style reference"
-                file={inspiration}
-                onFile={setInspiration}
-                optional
-              />
+  title="4) Inspiration (optional)"
+  subtitle="Style reference"
+  file={inspiration}
+  onFile={setInspiration}
+/>
             </div>
           </div>
 
