@@ -1,6 +1,6 @@
 // app/page.tsx
 "use client";
-
+import PromptWithMic from "../components/PromptWithMic";
 import React, { useMemo, useState } from "react";
 import UploadBox from "../components/UploadBox";
 
@@ -235,14 +235,12 @@ export default function Page() {
               </div>
             </div>
 
-            <textarea
-              className="textarea"
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              placeholder='e.g. "Use the buckle and material, keep the same sole shape, studio product photo, realistic, clean background."'
-              rows={5}
-              disabled={loading}
-            />
+            <PromptWithMic
+  value={prompt}
+  onChange={setPrompt}
+  placeholder='Example: "Use the buckle from image 1. Use only the material texture from image 2. Keep the sole matte and thin. Studio product photo."'
+  rows={6}
+/>
 
             <div className="muted" style={{ marginTop: 8 }}>
               Required: <b>Accessory + Material</b>
