@@ -1,7 +1,7 @@
 // components/UploadBox.tsx
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 
 type Props = {
   title: string;
@@ -21,17 +21,7 @@ export default function UploadBox({
   accept = "image/png,image/jpeg,image/webp",
 }: Props) {
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const [objectUrl, setObjectUrl] = useState<string>("");
-
-  useEffect(() => {
-    if (!file) {
-      setObjectUrl("");
-      return;
-    }
-    const url = URL.createObjectURL(file);
-    setObjectUrl(url);
-    return () => URL.revokeObjectURL(url);
-  }, [file]);
+  const [preview, setPreview] = useState<string>("");
 
   const ext = useMemo(() => {
     if (!file?.name) return "";
@@ -39,21 +29,62 @@ export default function UploadBox({
     return parts.length > 1 ? parts[parts.length - 1].toUpperCase() : "";
   }, [file]);
 
+  const isImage = useMemo(() => {
+    if (!file) return false;
+    return file.type.startsWith("image/");
+  }, [file]);
+
   function pickFile() {
     inputRef.current?.click();
+  }
+
+  function loadPreview(f: File | null) {
+    if (!f) {
+      setPreview("");
+      return;
+    }
+    if (!f.type.startsWith("image/")) {
+      setPreview("");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === "string" ? reader.result : "";
+      setPreview(result);
+    };
+    reader.onerror = () => setPreview("");
+    reader.readAsDataURL(f);
   }
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0] ?? null;
     onFile(f);
-    // allow re-selecting the same file
+    loadPreview(f);
+
+    // allow re-selecting same file
     e.currentTarget.value = "";
   }
 
   function handleRemove(e: React.MouseEvent) {
     e.stopPropagation();
     onFile(null);
+    setPreview("");
   }
+
+  // If file is coming from parent (e.g. page reload), rebuild preview when needed:
+  React.useEffect(() => {
+    // if parent cleared file
+    if (!file) {
+      setPreview("");
+      return;
+    }
+    // if we already have a preview, keep it
+    if (preview) return;
+    // else build preview
+    loadPreview(file);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [file]);
 
   return (
     <div style={styles.card}>
@@ -99,14 +130,17 @@ export default function UploadBox({
         ) : (
           <div style={styles.fileRow}>
             <div style={styles.thumbWrap}>
-              {/* Thumbnail */}
-              <img
-                src={objectUrl}
-                alt={file.name}
-                style={styles.thumb}
-                draggable={false}
-              />
-              {/* Small corner badge for type */}
+              {isImage && preview ? (
+                <img
+                  src={preview}
+                  alt={file.name}
+                  style={styles.thumb}
+                  draggable={false}
+                />
+              ) : (
+                <div style={styles.fallbackThumb}>FILE</div>
+              )}
+
               {ext ? <div style={styles.extPill}>{ext}</div> : null}
             </div>
 
@@ -181,8 +215,7 @@ const styles: Record<string, React.CSSProperties> = {
     background: "rgba(0,0,0,0.15)",
     padding: 14,
     cursor: "pointer",
-    transition: "border-color 120ms ease, background 120ms ease",
-    overflow: "hidden", // ensures thumbnail never spills out
+    overflow: "hidden",
   },
   dropHasFile: {
     border: "1px dashed rgba(120, 255, 190, 0.25)",
@@ -223,6 +256,16 @@ const styles: Record<string, React.CSSProperties> = {
     height: "100%",
     objectFit: "cover",
     display: "block",
+  },
+  fallbackThumb: {
+    width: "100%",
+    height: "100%",
+    display: "grid",
+    placeItems: "center",
+    fontSize: 11,
+    fontWeight: 900,
+    letterSpacing: 1,
+    color: "rgba(255,255,255,0.65)",
   },
   extPill: {
     position: "absolute",
