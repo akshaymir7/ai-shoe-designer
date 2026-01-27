@@ -198,7 +198,6 @@ export default function Page() {
                 subtitle="Sole reference image"
                 file={sole}
                 onFile={setSole}
-                optional
               />
             </div>
 
