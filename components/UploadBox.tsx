@@ -1,13 +1,15 @@
+// components/UploadBox.tsx
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useId, useMemo, useRef, useState } from "react";
 
 type Props = {
   title: string;
   subtitle?: string;
   file: File | null;
-  onFile: (f: File | null) => void;
+  onFile: (file: File | null) => void;
   accept?: string;
+  optional?: boolean;
 };
 
 export default function UploadBox({
@@ -16,130 +18,120 @@ export default function UploadBox({
   file,
   onFile,
   accept = "image/png,image/jpeg,image/webp",
+  optional = false,
 }: Props) {
+  const inputId = useId();
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string>("");
+  const [dragOver, setDragOver] = useState(false);
 
-  // Create a local preview URL whenever file changes
-  useEffect(() => {
-    if (!file) {
-      setPreviewUrl("");
-      return;
-    }
-    const url = URL.createObjectURL(file);
-    setPreviewUrl(url);
-
-    return () => {
-      URL.revokeObjectURL(url);
-    };
+  const previewUrl = useMemo(() => {
+    if (!file) return "";
+    return URL.createObjectURL(file);
   }, [file]);
 
-  const onPick = () => inputRef.current?.click();
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
 
-  const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  function pickFile() {
+    inputRef.current?.click();
+  }
+
+  function onInputChange(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0] ?? null;
     onFile(f);
-  };
+    // allow picking the same file again
+    e.target.value = "";
+  }
 
-  const onRemove = (e: React.MouseEvent) => {
+  function handleDrop(e: React.DragEvent<HTMLDivElement>) {
     e.preventDefault();
-    e.stopPropagation();
-    onFile(null);
-    if (inputRef.current) inputRef.current.value = "";
-  };
+    setDragOver(false);
+    const f = e.dataTransfer.files?.[0] ?? null;
+    if (f) onFile(f);
+  }
 
   return (
-    <div
-      onClick={onPick}
-      style={{
-        border: "1px solid rgba(255,255,255,0.10)",
-        borderRadius: 16,
-        padding: 14,
-        background: "rgba(255,255,255,0.03)",
-        cursor: "pointer",
-        position: "relative",
-        overflow: "hidden",
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-        {/* Thumbnail */}
-        <div
-          style={{
-            width: 64,
-            height: 64,
-            borderRadius: 12,
-            border: "1px solid rgba(255,255,255,0.10)",
-            background: "rgba(0,0,0,0.25)",
-            overflow: "hidden",
-            flex: "0 0 auto",
-            display: "grid",
-            placeItems: "center",
-          }}
-        >
-          {previewUrl ? (
-            <img
-              src={previewUrl}
-              alt="preview"
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-                display: "block",
-              }}
-            />
-          ) : (
-            <div style={{ fontSize: 12, opacity: 0.7, textAlign: "center" }}>
-              Click to upload
-              <div style={{ fontSize: 11, opacity: 0.6, marginTop: 4 }}>
-                PNG / JPG / WEBP
-              </div>
-            </div>
-          )}
+    <div className={`ub_card ${dragOver ? "ub_cardDrag" : ""}`}>
+      <div className="ub_head">
+        <div className="ub_titles">
+          <div className="ub_titleRow">
+            <div className="ub_title">{title}</div>
+            {optional ? <span className="ub_optional">optional</span> : null}
+          </div>
+          {subtitle ? <div className="ub_subtitle">{subtitle}</div> : null}
         </div>
 
-        {/* Text */}
-        <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={{ fontWeight: 700 }}>{title}</div>
-          {subtitle ? (
-            <div style={{ opacity: 0.7, fontSize: 12, marginTop: 2 }}>
-              {subtitle}
-            </div>
-          ) : null}
-
-          {file ? (
-            <div style={{ marginTop: 8, fontSize: 12, opacity: 0.75 }}>
-              {file.name}
-            </div>
-          ) : null}
-        </div>
-
-        {/* Remove */}
         {file ? (
-          <button
-            onClick={onRemove}
-            type="button"
-            style={{
-              border: "1px solid rgba(255,255,255,0.12)",
-              background: "rgba(0,0,0,0.25)",
-              color: "rgba(255,255,255,0.9)",
-              padding: "6px 10px",
-              borderRadius: 12,
-              cursor: "pointer",
-              flex: "0 0 auto",
-            }}
-          >
+          <button type="button" className="ub_removeBtn" onClick={() => onFile(null)}>
             Remove
           </button>
         ) : null}
       </div>
 
-      <input
-        ref={inputRef}
-        type="file"
-        accept={accept}
-        onChange={onChange}
-        style={{ display: "none" }}
-      />
+      <div
+        className="ub_drop"
+        onClick={pickFile}
+        onDragEnter={(e) => {
+          e.preventDefault();
+          setDragOver(true);
+        }}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragOver(true);
+        }}
+        onDragLeave={(e) => {
+          e.preventDefault();
+          setDragOver(false);
+        }}
+        onDrop={handleDrop}
+        role="button"
+        tabIndex={0}
+      >
+        <input
+          id={inputId}
+          ref={inputRef}
+          type="file"
+          accept={accept}
+          className="ub_input"
+          onChange={onInputChange}
+        />
+
+        {!file ? (
+          <div className="ub_empty">
+            <div className="ub_emptyTitle">Click to upload</div>
+            <div className="ub_emptyHint">PNG / JPEG / WEBP</div>
+            <div className="ub_emptyHint2">or drag & drop</div>
+          </div>
+        ) : (
+          <div className="ub_filled">
+            <div className="ub_thumbWrap">
+              {/* using <img> for blob URL reliability */}
+              < img className="ub_thumb" src={previewUrl} alt="preview" />
+            </div>
+
+            <div className="ub_meta">
+              <div className="ub_filename" title={file.name}>
+                {file.name}
+              </div>
+              <div className="ub_actions">
+                <button
+                  type="button"
+                  className="ub_linkBtn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    pickFile();
+                  }}
+                >
+                  Click to change
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
