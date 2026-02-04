@@ -74,62 +74,84 @@ export default function Page() {
 
   const canGenerate = !!accessory && !!material && !loading;
 
-  return (
-    <div className="page">
-      <h1>AI Shoe Designer</h1>
+ return (
+  <div className="page">
+    <h1>AI Shoe Designer</h1>
 
-      <p className="subtitle">
-        Upload inputs, add a prompt, then generate. Accessory + Material are required.
-      </p >
+    <p className="subtitle">
+      Upload inputs, add a prompt, then generate. Accessory + Material are required.
+    </p >
 
-      <div className="actions">
-        <button onClick={resetAll}>Reset</button>
-        <button onClick={handleGenerate} disabled={!canGenerate}>
-          {loading ? 'Generating…' : 'Generate'}
-        </button>
-      </div>
+    <div className="actions">
+      <button onClick={resetAll}>Reset</button>
+      <button onClick={handleGenerate} disabled={!canGenerate || loading}>
+        {loading ? 'Generating…' : 'Generate'}
+      </button>
+    </div>
 
-      <div className="grid">
-        {/* LEFT */}
-        <div className="left">
-          <div className="panel">
-            <div className="panelHeader">Design inputs</div>
-            <div className="panelBody">
-              <div className="stack">
-                <UploadBox label="1) Accessory / Hardware" required file={accessory} onChange={setAccessory} />
-                <UploadBox label="2) Upper Material" required file={material} onChange={setMaterial} />
-                <UploadBox label="3) Sole / Bottom" optional file={sole} onChange={setSole} />
-                <UploadBox label="4) Inspiration (optional)" optional file={inspiration} onChange={setInspiration} />
+    <div className="grid">
+      {/* LEFT */}
+      <div className="left">
+        <div className="panel">
+          <div className="panelHeader">Design inputs</div>
+
+          <div className="panelBody">
+            <div className="stack">
+              <UploadBox
+                label="1) Accessory / Hardware"
+                required
+                file={accessory}
+                onChange={setAccessory}
+              />
+              <UploadBox
+                label="2) Upper Material"
+                required
+                file={material}
+                onChange={setMaterial}
+              />
+              <UploadBox
+                label="3) Sole / Bottom"
+                optional
+                file={sole}
+                onChange={setSole}
+              />
+              <UploadBox
+                label="4) Inspiration (optional)"
+                optional
+                file={inspiration}
+                onChange={setInspiration}
+              />
+            </div>
+
+            <div style={{ marginTop: 14 }}>
+              <div className="label">Prompt (optional)</div>
+              <div className="muted" style={{ marginBottom: 8 }}>
+                {presetHint}
               </div>
+              <PromptWithMic value={prompt} onChange={setPrompt} />
+            </div>
 
-              <div style={{ marginTop: 14 }}>
-                <div className="label">Prompt (optional)</div>
-                <div className="muted" style={{ marginBottom: 8 }}>
-                  {presetHint}
-                </div>
-                <PromptWithMic value={prompt} onChange={setPrompt} />
-              </div>
-
-              <div className="field" style={{ marginTop: 14 }}>
-                <div className="label">Variations</div>
-                <select
-                  className="select"
-                  value={String(n)}
-                  onChange={(e) => setN(Number(e.target.value))}
-                  disabled={loading}
-                >
-                  {[1, 2, 3, 4].map((x) => (
-                    <option key={x} value={String(x)}>
-                      {x}
-                    </option>
-                  ))}
-                </select>
-              </div>
+            <div className="field" style={{ marginTop: 14 }}>
+              <div className="label">Variations</div>
+              <select
+                className="select"
+                value={String(n)}
+                onChange={(e) => setN(Number(e.target.value))}
+                disabled={loading}
+              >
+                {[1, 2, 3, 4].map((x) => (
+                  <option key={x} value={String(x)}>
+                    {x}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* RIGHT */}
+      {/* RIGHT */}
+      <div className="right">
         <ResultPanel
           title="Result"
           loading={loading}
@@ -138,5 +160,6 @@ export default function Page() {
         />
       </div>
     </div>
-  );
+  </div>
+);
 }
