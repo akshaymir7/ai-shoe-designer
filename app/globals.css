@@ -208,3 +208,89 @@ button:disabled{
   border: 1px solid rgba(255,255,255,.12);
   background: rgba(255,255,255,.03);
 }
+/* =========================
+   UploadBox (robust fallback)
+   (fixes “boxes missing”)
+========================= */
+
+/* If your wrapper class differs, this still styles the box */
+.ub_empty,
+.ub_filled {
+  border-radius: 12px;
+  padding: 14px;
+}
+
+/* EMPTY state should look like a dropzone box */
+.ub_empty {
+  border: 1px dashed rgba(255, 255, 255, 0.28);
+  background: rgba(0, 0, 0, 0.18);
+  text-align: center;
+}
+
+/* FILLED state should look like a solid box row */
+.ub_filled {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.22);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Text hierarchy */
+.ub_emptyTitle {
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+
+.ub_emptySub {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.ub_emptySub2 {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+/* Thumbnail */
+.ub_thumbWrap {
+  width: 54px;
+  height: 54px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  flex: 0 0 auto;
+}
+
+.ub_thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ub_fileMeta {
+  flex: 1;
+  min-width: 0;
+}
+
+.ub_fileName {
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ub_fileSize {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.ub_remove {
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
