@@ -1,15 +1,169 @@
-/* UploadBox polish */
+/* app/globals.css */
+
+/* ---------- Theme Tokens (Option B: Pro Configurator) ---------- */
+:root {
+  --bg0: #07090c;
+  --bg1: #0b0f15;
+  --panel: rgba(255, 255, 255, 0.04);
+  --panel2: rgba(255, 255, 255, 0.06);
+  --border: rgba(255, 255, 255, 0.10);
+  --border2: rgba(255, 255, 255, 0.14);
+  --text: rgba(255, 255, 255, 0.92);
+  --muted: rgba(255, 255, 255, 0.65);
+  --muted2: rgba(255, 255, 255, 0.45);
+  --accent: rgba(120, 220, 160, 0.95); /* calm “tool” green */
+  --accent2: rgba(120, 220, 160, 0.18);
+  --shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
+  --radius: 16px;
+  --radius2: 20px;
+}
+
+/* ---------- Base Reset ---------- */
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  color: var(--text);
+  font-family: var(--font-inter), system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  background: radial-gradient(1200px 700px at 20% -10%, rgba(120, 220, 160, 0.08), transparent 60%),
+              radial-gradient(1000px 600px at 110% 10%, rgba(90, 160, 255, 0.08), transparent 55%),
+              linear-gradient(180deg, var(--bg0), var(--bg1));
+}
+
+/* Subtle grain for “studio” feel */
+body::before{
+  content:"";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.06;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)' opacity='.45'/%3E%3C/svg%3E");
+  mix-blend-mode: overlay;
+}
+
+/* ---------- Global Elements ---------- */
+a { color: inherit; text-decoration: none; }
+button, input, textarea { font-family: inherit; }
+
+/* Nice default textarea (even if you have inline styles, this improves most pages) */
+textarea {
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: rgba(0,0,0,0.25);
+  color: var(--text);
+  outline: none;
+}
+textarea:focus {
+  border-color: rgba(120, 220, 160, 0.35);
+  box-shadow: 0 0 0 3px rgba(120, 220, 160, 0.12);
+}
+
+/* ---------- Page Layout Helpers (works even if page.tsx stays the same) ---------- */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 28px 18px 60px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.brandTitle {
+  font-family: var(--font-grotesk), var(--font-inter), system-ui, sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.4px;
+  font-size: 28px;
+  line-height: 1.1;
+}
+
+.brandSub {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.04);
+  padding: 8px 12px;
+  border-radius: 999px;
+  color: rgba(255,255,255,0.78);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.panel {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  border-radius: var(--radius2);
+  padding: 16px;
+  box-shadow: var(--shadow);
+}
+
+.panelTitle {
+  font-family: var(--font-grotesk), var(--font-inter), system-ui, sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.2px;
+  margin: 0 0 10px 0;
+  font-size: 14px;
+  color: rgba(255,255,255,0.9);
+}
+
+/* ---------- Buttons ---------- */
+.btnPrimary {
+  border: 1px solid rgba(120, 220, 160, 0.35);
+  background: linear-gradient(180deg, rgba(120, 220, 160, 0.16), rgba(120, 220, 160, 0.10));
+  color: rgba(255,255,255,0.95);
+  padding: 12px 16px;
+  border-radius: 14px;
+  cursor: pointer;
+  font-weight: 800;
+  letter-spacing: 0.1px;
+  transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
+}
+.btnPrimary:hover {
+  transform: translateY(-1px);
+  border-color: rgba(120, 220, 160, 0.55);
+}
+.btnPrimary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btnGhost {
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.04);
+  color: rgba(255,255,255,0.85);
+  padding: 10px 12px;
+  border-radius: 14px;
+  cursor: pointer;
+}
+.btnGhost:hover {
+  background: rgba(255,255,255,0.07);
+}
+
+/* ---------- UploadBox polish (keeps your current UploadBox UI but makes it “tool-grade”) ---------- */
 .ub_card{
   background: rgba(255,255,255,0.03);
   border: 1px solid rgba(255,255,255,0.10);
   border-radius: 16px;
   padding: 14px;
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(10px);
 }
 
 .ub_cardDrag{
-  border-color: rgba(80, 200, 140, 0.6);
-  box-shadow: 0 0 0 2px rgba(80, 200, 140, 0.18) inset;
+  border-color: rgba(120, 220, 160, 0.60);
+  box-shadow: 0 0 0 2px rgba(120, 220, 160, 0.16) inset;
 }
 
 .ub_head{
@@ -23,8 +177,9 @@
 .ub_titles{ min-width: 0; }
 .ub_titleRow{ display:flex; align-items:center; gap:8px; }
 .ub_title{
-  font-weight: 700;
-  letter-spacing: 0.2px;
+  font-family: var(--font-grotesk), var(--font-inter), system-ui, sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.2px;
 }
 .ub_optional{
   font-size: 12px;
@@ -36,7 +191,7 @@
 .ub_subtitle{
   margin-top: 4px;
   font-size: 13px;
-  color: rgba(255,255,255,0.6);
+  color: rgba(255,255,255,0.62);
 }
 
 .ub_removeBtn{
@@ -53,7 +208,7 @@
 }
 
 .ub_drop{
-  border: 1px dashed rgba(255,255,255,0.18);
+  border: 1px dashed rgba(255,255,255,0.20);
   border-radius: 14px;
   padding: 14px;
   cursor: pointer;
@@ -67,7 +222,8 @@
   padding: 18px 10px;
 }
 .ub_emptyTitle{
-  font-weight: 700;
+  font-family: var(--font-grotesk), var(--font-inter), system-ui, sans-serif;
+  font-weight: 800;
   font-size: 16px;
 }
 .ub_emptyHint{
@@ -100,7 +256,7 @@
 .ub_thumb{
   width: 100%;
   height: 100%;
-  object-fit: cover; /* IMPORTANT: confines thumbnail */
+  object-fit: cover;
   display: block;
 }
 
@@ -110,7 +266,7 @@
 }
 .ub_filename{
   font-size: 13px;
-  color: rgba(255,255,255,0.9);
+  color: rgba(255,255,255,0.92);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -121,14 +277,20 @@
   border: none;
   background: transparent;
   color: rgba(120, 220, 160, 0.95);
-  font-weight: 600;
+  font-weight: 700;
   padding: 0;
   cursor: pointer;
 }
 .ub_linkBtn:hover{ text-decoration: underline; }
 
-/* Mobile niceties */
+/* ---------- Responsive polish ---------- */
+@media (max-width: 740px){
+  .brandTitle { font-size: 24px; }
+  .panel { padding: 14px; }
+}
+
 @media (max-width: 520px){
+  .container { padding: 22px 14px 52px; }
   .ub_card{ padding: 12px; }
   .ub_drop{ padding: 12px; }
   .ub_thumbWrap{ width: 52px; height: 52px; }
