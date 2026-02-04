@@ -317,3 +317,173 @@ textarea:focus {
   .ub_drop{ padding: 12px; }
   .ub_thumbWrap{ width: 52px; height: 52px; }
 }
+/* ---------- UploadBox polish ---------- */
+.ub_input { display: none; }
+
+.ub_card{
+  border-radius: 18px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.04);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+  padding: 14px 14px 12px;
+  cursor: pointer;
+  transition: transform 160ms ease, border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
+  user-select: none;
+}
+
+.ub_card:hover{
+  transform: translateY(-1px);
+  border-color: rgba(255,255,255,0.16);
+  background: rgba(255,255,255,0.05);
+  box-shadow: 0 26px 70px rgba(0,0,0,0.42);
+}
+
+.ub_card:focus{
+  outline: none;
+}
+.ub_card:focus-visible{
+  border-color: rgba(120,220,160,0.55);
+  box-shadow: 0 0 0 3px rgba(120,220,160,0.18), 0 26px 70px rgba(0,0,0,0.42);
+}
+
+.ub_card.isDragOver{
+  border-color: rgba(120,220,160,0.65);
+  background: rgba(120,220,160,0.08);
+  transform: translateY(-2px);
+}
+
+.ub_card.isDisabled{
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.ub_header{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.ub_titles{ min-width: 0; }
+
+.ub_titleRow{
+  display:flex;
+  align-items:center;
+  gap: 10px;
+}
+
+.ub_title{
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.2px;
+  color: rgba(255,255,255,0.92);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ub_pill{
+  font-size: 11px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(0,0,0,0.18);
+  color: rgba(255,255,255,0.72);
+}
+.ub_pill.req{
+  border-color: rgba(255,255,255,0.10);
+  color: rgba(255,255,255,0.60);
+}
+
+.ub_subtitle{
+  margin-top: 4px;
+  font-size: 12px;
+  color: rgba(255,255,255,0.65);
+}
+
+.ub_hint{
+  margin-top: 6px;
+  font-size: 12px;
+  color: rgba(255,255,255,0.45);
+}
+
+.ub_badge{
+  font-size: 11px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(0,0,0,0.16);
+  color: rgba(255,255,255,0.70);
+  white-space: nowrap;
+}
+
+.ub_clear{
+  font-size: 12px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(0,0,0,0.16);
+  color: rgba(255,255,255,0.85);
+  cursor: pointer;
+  transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+.ub_clear:hover{
+  transform: translateY(-1px);
+  border-color: rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.06);
+}
+
+.ub_body{
+  border-radius: 14px;
+  border: 1px dashed rgba(255,255,255,0.12);
+  background: rgba(0,0,0,0.14);
+  padding: 12px;
+  min-height: 120px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  transition: border-color 160ms ease, background 160ms ease;
+}
+
+.ub_card.isFilled .ub_body{
+  border-style: solid;
+  border-color: rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.03);
+}
+
+.ub_dropzone{ text-align:center; }
+.ub_dropTitle{
+  font-weight: 700;
+  color: rgba(255,255,255,0.92);
+}
+.ub_dropSub{
+  margin-top: 6px;
+  font-size: 12px;
+  color: rgba(255,255,255,0.55);
+}
+
+.ub_previewWrap{
+  width: 100%;
+}
+.ub_preview{
+  width: 100%;
+  height: 170px;
+  object-fit: cover;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(0,0,0,0.18);
+  display:block;
+}
+.ub_meta{
+  margin-top: 8px;
+  font-size: 12px;
+  color: rgba(255,255,255,0.60);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 520px){
+  .ub_preview{ height: 150px; }
+}
