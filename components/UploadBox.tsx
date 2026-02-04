@@ -1,61 +1,46 @@
-"use client";
+'use client';
 
-import React, { useMemo, useRef } from "react";
+import React, { useEffect, useRef, useState } from 'react';
 
-export type UploadBoxProps = {
+type UploadBoxProps = {
   label: string;
-  required?: boolean; // show "Required" badge
-  optional?: boolean; // alternatively show "Optional"
-  hint?: string; // helper text under subtitle
-  accept?: string; // defaults to common image types
-  disabled?: boolean;
-
+  required?: boolean;
+  optional?: boolean;
   file: File | null;
   onChange: (file: File | null) => void;
+  accept?: string;
+  disabled?: boolean;
 };
 
 export default function UploadBox({
   label,
   required,
   optional,
-  hint,
-  accept = "image/png,image/jpeg,image/webp",
-  disabled,
   file,
   onChange,
+  accept = 'image/png,image/jpeg,image/webp',
+  disabled,
 }: UploadBoxProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState(false);
 
-  const previewUrl = useMemo(() => {
-    if (!file) return "";
-    return URL.createObjectURL(file);
+  useEffect(() => {
+    if (!file) {
+      setPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
   }, [file]);
 
-  function pickFile() {
-    if (disabled) return;
-    inputRef.current?.click();
+  function openPicker() {
+    if (!disabled) inputRef.current?.click();
   }
 
-  function onFileSelected(f: File | null) {
-    onChange(f);
-  }
-
-  function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0] ?? null;
-    onFileSelected(f);
-    // reset so selecting same file again triggers change
-    e.target.value = "";
-  }
-
-  function handleDrop(e: React.DragEvent<HTMLDivElement>) {
-    e.preventDefault();
-    if (disabled) return;
-    const f = e.dataTransfer.files?.[0] ?? null;
-    if (f) onFileSelected(f);
-  }
-
-  function handleDragOver(e: React.DragEvent<HTMLDivElement>) {
-    e.preventDefault();
+  function onFilePicked(f: File | null) {
+    if (f) onChange(f);
   }
 
   function removeFile(e: React.MouseEvent) {
@@ -63,35 +48,32 @@ export default function UploadBox({
     onChange(null);
   }
 
-  const badge = required ? "Required" : optional ? "Optional" : "";
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setDragOver(false);
+    if (disabled) return;
+    const f = e.dataTransfer.files?.[0];
+    if (f) onFilePicked(f);
+  }
 
   return (
-    <div className="ub_card">
-      <div className="ub_head">
-        <div className="ub_titleRow">
-          <div className="ub_title">{label}</div>
-          {badge ? <div className="ub_badge">{badge}</div> : null}
-        </div>
-        {hint ? <div className="ub_hint">{hint}</div> : null}
+    <div className="ub_wrap">
+      <div className="ub_titleRow">
+        <div className="ub_title">{label}</div>
+        {required && <span className="ub_badge required">Required</span>}
+        {optional && <span className="ub_badge optional">Optional</span>}
       </div>
 
       <div
-        className={`ub_drop ${disabled ? "ub_disabled" : ""}`}
-        onClick={pickFile}
+        className={`ub_drop ${dragOver ? 'drag' : ''} ${disabled ? 'disabled' : ''}`}
+        onClick={openPicker}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragOver(true);
+        }}
+        onDragLeave={() => setDragOver(false)}
         onDrop={handleDrop}
-        onDragOver={handleDragOver}
-        role="button"
-        tabIndex={0}
       >
-        <input
-          ref={inputRef}
-          type="file"
-          accept={accept}
-          onChange={handleInputChange}
-          style={{ display: "none" }}
-          disabled={disabled}
-        />
-
         {!file ? (
           <div className="ub_empty">
             <div className="ub_emptyTitle">Click to upload</div>
@@ -102,7 +84,7 @@ export default function UploadBox({
           <div className="ub_filled">
             <div className="ub_thumbWrap">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              < img className="ub_thumb" src={previewUrl} alt="preview" />
+              < img className="ub_thumb" src={previewUrl!} alt="preview" />
             </div>
 
             <div className="ub_fileMeta">
@@ -112,11 +94,24 @@ export default function UploadBox({
               </div>
             </div>
 
-            <button className="ub_remove" onClick={removeFile} type="button">
+            <button
+              className="ub_remove"
+              onClick={removeFile}
+              type="button"
+            >
               Remove
             </button>
           </div>
         )}
+
+        <input
+          ref={inputRef}
+          type="file"
+          accept={accept}
+          disabled={disabled}
+          hidden
+          onChange={(e) => onFilePicked(e.target.files?.[0] ?? null)}
+        />
       </div>
     </div>
   );
