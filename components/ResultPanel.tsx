@@ -6,8 +6,8 @@ export type ResultPanelProps = {
   title: string;
   loading: boolean;
   images: string[];
-  emptyText?: string;     // optional (safe even if page.tsx doesn't pass it)
-  stageHeight?: number;   // default 480
+  emptyText?: string;
+  stageHeight?: number; // px (e.g. 480)
 };
 
 export default function ResultPanel({
@@ -17,132 +17,165 @@ export default function ResultPanel({
   emptyText = 'No result yet',
   stageHeight = 480,
 }: ResultPanelProps) {
+  const hasImages = images && images.length > 0;
+
+  const [activeIndex, setActiveIndex] = useState(0);
   const [active, setActive] = useState<string | null>(null);
+
   const [bg, setBg] = useState<'white' | 'gray'>('white');
+  const [isZoomOpen, setIsZoomOpen] = useState(false);
+  const [showHint, setShowHint] = useState(true);
 
-  // Zoom-on-click (no modal): toggle zoom + dynamic transform-origin for "pan"
-  const [zoomed, setZoomed] = useState(false);
-  const [origin, setOrigin] = useState({ x: 50, y: 50 });
-
+  // keep active in sync with images
   useEffect(() => {
-    if (images?.length) setActive(images[0]);
-    else setActive(null);
-    setZoomed(false);
-  }, [images]);
+    if (!hasImages) {
+      setActiveIndex(0);
+      setActive(null);
+      setIsZoomOpen(false);
+      setShowHint(true);
+      return;
+    }
+    const safeIndex = Math.min(activeIndex, images.length - 1);
+    setActiveIndex(safeIndex);
+    setActive(images[safeIndex]);
+  }, [hasImages, images]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const canDownload = !!active;
+  // hide hint after first click OR after first zoom
+  useEffect(() => {
+    if (isZoomOpen) setShowHint(false);
+  }, [isZoomOpen]);
 
-  const fileName = useMemo(() => {
-    const ts = new Date().toISOString().replace(/[:.]/g, '-');
-    return `shoe-result-${ts}.png`;
-  }, []);
+  const counterText = useMemo(() => {
+    if (!hasImages) return '';
+    return `${activeIndex + 1}/${images.length}`;
+  }, [activeIndex, hasImages, images.length]);
 
-  async function handleDownload() {
+  const openZoom = () => {
+    if (!active) return;
+    setIsZoomOpen(true);
+    setShowHint(false);
+  };
+
+  const closeZoom = () => setIsZoomOpen(false);
+
+  const downloadActive = async () => {
     if (!active) return;
 
     try {
       const res = await fetch(active, { mode: 'cors' });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
       const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
 
+      const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = fileName;
+
+      const ts = new Date().toISOString().replace(/[:.]/g, '-');
+      a.download = `shoe-result-${activeIndex + 1}-${ts}.png`;
+
       document.body.appendChild(a);
       a.click();
       a.remove();
-
       URL.revokeObjectURL(url);
-    } catch (err) {
-      // Fallback: open image in new tab if CORS blocks blob download
-      window.open(active, '_blank', 'noopener,noreferrer');
-      console.warn('Download fallback (open new tab). Error:', err);
+    } catch (e) {
+      console.error(e);
+      alert('Download failed. Try opening the image in a new tab and saving it.');
     }
-  }
-
-  function onStageMouseMove(e: React.MouseEvent<HTMLDivElement>) {
-    if (!zoomed) return;
-    const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * 100;
-    const y = ((e.clientY - rect.top) / rect.height) * 100;
-    setOrigin({
-      x: Math.max(0, Math.min(100, x)),
-      y: Math.max(0, Math.min(100, y)),
-    });
-  }
+  };
 
   return (
     <div className="panel rp">
       <div className="panelHeader rp_head">
-        <div className="rp_title">{title}</div>
+        <div className="rp_titleRow">
+          <div className="rp_title">{title}</div>
+          <div className="rp_meta">
+            {hasImages && <div className="rp_counter">{counterText}</div>}
 
-        <div className="rp_tools">
-          <button
-            type="button"
-            className="rp_toggle"
-            onClick={() => setBg(bg === 'white' ? 'gray' : 'white')}
-            title="Toggle background"
-          >
-            BG: {bg === 'white' ? 'White' : 'Gray'}
-          </button>
-
-          <button
-            type="button"
-            className="rp_download"
-            onClick={handleDownload}
-            disabled={!canDownload}
-            title={canDownload ? 'Download active image' : 'No image to download'}
-          >
-            Download
-          </button>
+            <div className="rp_toggle">
+              <button
+                type="button"
+                className={`rp_toggleBtn ${bg === 'white' ? 'isActive' : ''}`}
+                onClick={() => setBg('white')}
+                disabled={loading}
+              >
+                White
+              </button>
+              <button
+                type="button"
+                className={`rp_toggleBtn ${bg === 'gray' ? 'isActive' : ''}`}
+                onClick={() => setBg('gray')}
+                disabled={loading}
+              >
+                Gray
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
       <div className="panelBody rp_body">
-        {loading ? (
-          <div className="rp_empty">{'Generating…'}</div>
-        ) : !active ? (
-          <div className="rp_empty">{emptyText}</div>
-        ) : (
+        {loading && <div className="rp_empty muted">Generating…</div>}
+
+        {!loading && !hasImages && <div className="rp_empty muted">{emptyText}</div>}
+
+        {!loading && hasImages && (
           <>
             {/* STAGE */}
             <div
               className={`rp_stage ${bg === 'white' ? 'rp_bgWhite' : 'rp_bgGray'}`}
               style={{ height: stageHeight }}
-              onMouseMove={onStageMouseMove}
-              onClick={() => setZoomed((z) => !z)}
-              title={zoomed ? 'Click to unzoom' : 'Click to zoom'}
+              onClick={openZoom}
+              role="button"
+              tabIndex={0}
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                className={`rp_stageImg ${zoomed ? 'isZoomed' : ''}`}
-                src={active}
-                alt="Result preview"
-                style={{ transformOrigin: `${origin.x}% ${origin.y}%` }}
-                draggable={false}
-              />
+              {active && (
+                // eslint-disable-next-line @next/next/no-img-element
+                < img className="rp_stageImg" src={active} alt="Result" />
+              )}
+
+              {showHint && (
+                <div className="rp_hint">
+                  Click image to zoom
+                </div>
+              )}
             </div>
 
-            {/* THUMBNAILS */}
-            {images.length > 1 && (
-              <div className="rp_thumbs">
-                {images.map((url, i) => (
-                  <button
-                    key={url + i}
-                    type="button"
-                    className={`rp_thumbBtn ${url === active ? 'isActive' : ''}`}
-                    onClick={() => {
-                      setActive(url);
-                      setZoomed(false);
-                    }}
-                    title={`Result ${i + 1}`}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    < img className="rp_thumbImg" src={url} alt={`Result ${i + 1}`} />
+            {/* ACTIONS */}
+            <div className="rp_actions">
+              <button type="button" className="rp_btn" onClick={downloadActive}>
+                Download
+              </button>
+            </div>
+
+            {/* THUMBS */}
+            <div className="rp_thumbs">
+              {images.map((url, i) => (
+                <button
+                  key={url + i}
+                  type="button"
+                  className={`rp_thumbBtn ${i === activeIndex ? 'isActive' : ''}`}
+                  onClick={() => {
+                    setActiveIndex(i);
+                    setActive(url);
+                  }}
+                  aria-label={`Select result ${i + 1}`}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  < img className="rp_thumbImg" src={url} alt={`Result ${i + 1}`} />
+                </button>
+              ))}
+            </div>
+
+            {/* ZOOM MODAL */}
+            {isZoomOpen && active && (
+              <div className="rp_modal" onClick={closeZoom} role="button" tabIndex={0}>
+                <div className="rp_modalInner" onClick={(e) => e.stopPropagation()}>
+                  <button className="rp_close" onClick={closeZoom} type="button">
+                    Close
                   </button>
-                ))}
+
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  < img className="rp_full" src={active} alt="Preview" />
+                </div>
               </div>
             )}
           </>
