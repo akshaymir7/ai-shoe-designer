@@ -140,10 +140,12 @@ Realistic photoshoot."`;
         {/* RIGHT COLUMN */}
         <div className="right">
           <ResultPanel
-            title="Result"
-            loading={loading}
-            images={results}
-          />
+  title="Result"
+  loading={loading}
+  images={results}
+  emptyText="No results yet"
+  stageHeight={480}
+/>
         </div>
       </div>
     </div>
