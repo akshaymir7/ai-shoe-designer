@@ -1227,3 +1227,30 @@ button:disabled{
   height: 56px;
   object-fit: contain;
 }
+/* PAGE LAYOUT */
+.page {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 18px 18px 28px;
+}
+
+/* 2-column main layout: LEFT + RIGHT */
+.grid {
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  gap: 16px;
+  align-items: start;
+}
+
+/* ensure panels don't force wrap */
+.left,
+.right {
+  min-width: 0;
+}
+
+/* responsive: stack on small screens */
+@media (max-width: 980px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}
