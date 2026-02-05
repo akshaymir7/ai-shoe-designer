@@ -869,3 +869,136 @@ button:disabled{
   height: 100%;
   display: block;
 }
+/* ========== Result Panel ========== */
+
+.rp_head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+
+.rp_title{
+  font-weight:700;
+}
+
+.rp_tools{
+  display:flex;
+  gap:10px;
+  align-items:center;
+}
+
+.rp_toggle,
+.rp_download{
+  padding:8px 10px;
+  border-radius:10px;
+  border:1px solid rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.92);
+  cursor:pointer;
+  transition: transform 120ms ease, background 120ms ease, border 120ms ease, opacity 120ms ease;
+}
+
+.rp_toggle:hover,
+.rp_download:hover{
+  transform: translateY(-1px);
+  background: rgba(255,255,255,0.12);
+  border:1px solid rgba(255,255,255,0.18);
+}
+
+.rp_download:disabled{
+  opacity:0.45;
+  cursor:not-allowed;
+  transform:none;
+}
+
+.rp_body{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+
+.rp_empty{
+  padding:14px;
+  color: rgba(255,255,255,0.7);
+}
+
+/* Stage (main preview) */
+.rp_stage{
+  width:100%;
+  border-radius:14px;
+  border:1px solid rgba(255,255,255,0.12);
+  overflow:hidden;
+  position:relative;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:16px;                 /* IMPORTANT: prevents shoe touching edges */
+  cursor: zoom-in;              /* clickable */
+}
+
+.rp_stage.rp_bgWhite{ background:#ffffff; }
+.rp_stage.rp_bgGray{ background:#efefef; }
+
+.rp_stageImg{
+  width:100%;
+  height:100%;
+  object-fit: contain;          /* IMPORTANT: no cropping */
+  object-position:center;
+  border-radius:10px;
+  user-select:none;
+  pointer-events:none;          /* click handled by stage */
+  transform: scale(1);
+  transition: transform 160ms ease;
+}
+
+/* Hover zoom (subtle) */
+.rp_stage:hover .rp_stageImg{
+  transform: scale(1.03);
+}
+
+/* Click zoom (stronger) */
+.rp_stageImg.isZoomed{
+  transform: scale(1.7);
+}
+
+.rp_stage:has(.rp_stageImg.isZoomed){
+  cursor: zoom-out;
+}
+
+/* Thumbnails */
+.rp_thumbs{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+}
+
+.rp_thumbBtn{
+  width:64px;
+  height:64px;
+  border-radius:12px;
+  border:1px solid rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.06);
+  padding:6px;
+  cursor:pointer;
+  transition: transform 120ms ease, border 120ms ease, background 120ms ease;
+}
+
+.rp_thumbBtn:hover{
+  transform: translateY(-1px);
+  border:1px solid rgba(255,255,255,0.22);
+  background: rgba(255,255,255,0.09);
+}
+
+.rp_thumbBtn.isActive{
+  border:1px solid rgba(255,255,255,0.30);
+  background: rgba(255,255,255,0.12);
+}
+
+.rp_thumbImg{
+  width:100%;
+  height:100%;
+  object-fit: cover;
+  border-radius:8px;
+  display:block;
+}
