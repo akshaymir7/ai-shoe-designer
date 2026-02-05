@@ -1,9 +1,13 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import UploadBox from '@/components/UploadBox';
-import ResultPanel from '@/components/ResultPanel';
 import PromptWithMic from '@/components/PromptWithMic';
+import ResultPanel from '@/components/ResultPanel';
+
+type GenerateResponse = {
+  images: string[];
+};
 
 export default function Page() {
   const [accessory, setAccessory] = useState<File | null>(null);
@@ -12,44 +16,18 @@ export default function Page() {
   const [inspiration, setInspiration] = useState<File | null>(null);
 
   const [prompt, setPrompt] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [results, setResults] = useState<string[]>([]);
   const [n, setN] = useState(4);
 
-  const canGenerate = !!accessory && !!material && !loading;
+  const [loading, setLoading] = useState(false);
+  const [results, setResults] = useState<string[]>([]);
 
   const presetHint = useMemo(() => {
-    return `Example:
-"Use the buckle from image 1.
-Use only the material texture from image 2.
-Keep the sole shape from image 3.
-Make a ladies ballerina.
-Realistic photoshoot."`;
+    return `Example: "Use the buckle from image 1. Use only the material texture from image 2. Keep the sole shape from image 3. Make a ladies ballerina. Realistic photoshoot."`;
   }, []);
 
-  async function handleGenerate() {
-    if (!canGenerate) return;
-
-    setLoading(true);
-    setResults([]);
-
-    try {
-      // TODO: replace with your real API call
-      await new Promise((r) => setTimeout(r, 1500));
-
-      // mock images for now
-      setResults([
-        '/mock/result1.jpg',
-        '/mock/result2.jpg',
-        '/mock/result3.jpg',
-        '/mock/result4.jpg',
-      ].slice(0, n));
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  }
+  const canGenerate = useMemo(() => {
+    return !!accessory && !!material && !loading;
+  }, [accessory, material, loading]);
 
   function resetAll() {
     setAccessory(null);
@@ -58,15 +36,75 @@ Realistic photoshoot."`;
     setInspiration(null);
     setPrompt('');
     setResults([]);
+    setN(4);
+  }
+
+  async function fileToDataUrl(file: File): Promise<string> {
+    return await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('Failed to read file'));
+      reader.onload = () => resolve(String(reader.result));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function handleGenerate() {
+    if (!accessory || !material) {
+      alert('Accessory and Material are required.');
+      return;
+    }
+
+    setLoading(true);
+    setResults([]);
+
+    try {
+      // Convert files to base64 data URLs (safe to send via JSON)
+      const [accessoryDataUrl, materialDataUrl, soleDataUrl, inspirationDataUrl] = await Promise.all([
+        fileToDataUrl(accessory),
+        fileToDataUrl(material),
+        sole ? fileToDataUrl(sole) : Promise.resolve(null),
+        inspiration ? fileToDataUrl(inspiration) : Promise.resolve(null),
+      ]);
+
+      const res = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          accessory: accessoryDataUrl,
+          material: materialDataUrl,
+          sole: soleDataUrl,
+          inspiration: inspirationDataUrl,
+          prompt,
+          n,
+        }),
+      });
+
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '');
+        throw new Error(`Generate failed (${res.status}). ${txt}`);
+      }
+
+      const data = (await res.json()) as GenerateResponse;
+
+      if (!data?.images || !Array.isArray(data.images) || data.images.length === 0) {
+        throw new Error('No images returned from API.');
+      }
+
+      // ✅ Option B: use real URLs returned by API (NO mock paths)
+      setResults(data.images.slice(0, n));
+    } catch (err: any) {
+      console.error(err);
+      alert(err?.message || 'Something went wrong while generating.');
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
     <div className="page">
       <h1>AI Shoe Designer</h1>
 
-      <p className="subtitle">
-        Upload inputs, add a prompt, then generate. Accessory + Material are required.
-      </p >
+      <p className="subtitle">Upload inputs, add a prompt, then generate. Accessory + Material are required.</p >
 
       <div className="actions">
         <button onClick={resetAll}>Reset</button>
@@ -75,39 +113,17 @@ Realistic photoshoot."`;
         </button>
       </div>
 
-      {/* ================= GRID ================= */}
       <div className="grid">
-        {/* LEFT COLUMN */}
+        {/* LEFT */}
         <div className="left">
           <div className="panel">
             <div className="panelHeader">Design inputs</div>
             <div className="panelBody">
               <div className="stack">
-                <UploadBox
-                  label="Accessory / Hardware"
-                  file={accessory}
-                  onChange={setAccessory}
-                  required
-                />
-
-                <UploadBox
-                  label="Upper Material"
-                  file={material}
-                  onChange={setMaterial}
-                  required
-                />
-
-                <UploadBox
-                  label="Sole / Bottom"
-                  file={sole}
-                  onChange={setSole}
-                />
-
-                <UploadBox
-                  label="Inspiration"
-                  file={inspiration}
-                  onChange={setInspiration}
-                />
+                <UploadBox label="Accessory / Hardware" required file={accessory} onChange={setAccessory} />
+                <UploadBox label="Upper Material" required file={material} onChange={setMaterial} />
+                <UploadBox label="Sole / Bottom" optional file={sole} onChange={setSole} />
+                <UploadBox label="Inspiration" optional file={inspiration} onChange={setInspiration} />
               </div>
 
               <div style={{ marginTop: 14 }}>
@@ -137,15 +153,9 @@ Realistic photoshoot."`;
           </div>
         </div>
 
-        {/* RIGHT COLUMN */}
+        {/* RIGHT */}
         <div className="right">
-          <ResultPanel
-  title="Result"
-  loading={loading}
-  images={results}
-  emptyText="No results yet"
-  stageHeight={480}
-/>
+          <ResultPanel title="Result" loading={loading} images={results} />
         </div>
       </div>
     </div>
