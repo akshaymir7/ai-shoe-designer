@@ -18,21 +18,16 @@ export default function ResultPanel({
   const [active, setActive] = useState<string | undefined>(undefined);
 
   useEffect(() => {
-    if (images.length > 0) {
-      setActive(images[0]);
-    } else {
-      setActive(undefined);
-    }
+    if (images.length > 0) setActive(images[0]);
+    else setActive(undefined);
   }, [images]);
 
   return (
     <div className="panel rp">
-      {/* Header */}
       <div className="panelHeader rp_head">
         <div className="rp_title">{title}</div>
       </div>
 
-      {/* Body */}
       <div className="panelBody rp_body">
         {loading && (
           <div className="rp_empty">
@@ -50,17 +45,11 @@ export default function ResultPanel({
 
         {!loading && images.length > 0 && active && (
           <>
-            {/* Stage */}
             <div className="rp_stage rp_stage--grey rp_fit--contain">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                className="rp_stageImg"
-                src={active}
-                alt="Generated result"
-              />
+              < img className="rp_stageImg" src={active} alt="Generated result" />
             </div>
 
-            {/* Thumbnails */}
             <div className="rp_thumbs">
               {images.map((url, i) => (
                 <button
@@ -70,11 +59,7 @@ export default function ResultPanel({
                   onClick={() => setActive(url)}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    className="rp_thumbImg"
-                    src={url}
-                    alt={`Result ${i + 1}`}
-                  />
+                  < img className="rp_thumbImg" src={url} alt={`Result ${i + 1}`} />
                 </button>
               ))}
             </div>
