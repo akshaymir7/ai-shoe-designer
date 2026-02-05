@@ -1,83 +1,91 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
-type Props = {
+type ResultPanelProps = {
   title: string;
-  loading: boolean;
   images: string[];
-  emptyHint?: string;
+  loading: boolean;
 };
 
-export default function ResultPanel({ title, loading, images, emptyHint }: Props) {
+export default function ResultPanel({
+  title,
+  images,
+  loading,
+}: ResultPanelProps) {
   const [active, setActive] = useState<string | null>(null);
 
-  const gridClass = useMemo(() => {
-    return images.length <= 1 ? 'rp_grid rp_gridOne' : 'rp_grid';
+  useEffect(() => {
+    if (!images.length) {
+      setActive(null);
+    }
   }, [images.length]);
 
   return (
     <div className="panel rp">
+      {/* HEADER */}
       <div className="panelHeader rp_head">
         <div className="rp_title">{title}</div>
-
-        <div className="rp_meta">
-          {loading ? (
-            <span className="rp_chip">Generating…</span>
-          ) : (
-            <span className="rp_chip">{images.length} image{images.length === 1 ? '' : 's'}</span>
-          )}
-        </div>
       </div>
 
+      {/* BODY */}
       <div className="panelBody rp_body">
-        {loading && (
-          <div className="rp_skeletonWrap">
-            <div className="rp_skel" />
-            <div className="rp_skel" />
-            <div className="rp_skel" />
-            <div className="rp_skel" />
-          </div>
-        )}
+        {loading && <div className="muted">Generating…</div>}
 
         {!loading && images.length === 0 && (
-          <div className="rp_empty">
-            <div className="rp_emptyTitle">No result yet</div>
-            <div className="rp_emptySub">{emptyHint ?? 'Generate to see results here.'}</div>
-          </div>
+          <div className="muted">No result yet</div>
         )}
 
         {!loading && images.length > 0 && (
-          <div className={gridClass}>
+          <div className="rp_grid">
             {images.map((url, i) => (
               <button
-                key={`${i}-${url}`}
-                type="button"
-                className="rp_card"
+                key={i}
+                className="rp_thumbWrap"
                 onClick={() => setActive(url)}
-                title="Click to enlarge"
+                type="button"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                < img className="rp_img" src={url} alt={`Result ${i + 1}`} />
-                <div className="rp_caption">Variation {i + 1}</div>
+                <img
+                  className="rp_thumb"
+                  src={url}
+                  alt={`Result ${i + 1}`}
+                />
               </button>
             ))}
           </div>
         )}
       </div>
 
-      {/* Lightbox */}
+      {/* LIGHTBOX */}
       {active && (
-        <div className="rp_lightbox" onClick={() => setActive(null)}>
-          <div className="rp_lightboxInner" onClick={(e) => e.stopPropagation()}>
-            <button className="rp_close" type="button" onClick={() => setActive(null)}>
-              Close
-            </button>
+        <div className="rp_overlay" onClick={() => setActive(null)}>
+          <div
+            className="rp_modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="rp_modalHeader">
+              <button
+                className="rp_close"
+                onClick={() => setActive(null)}
+                type="button"
+              >
+                Close
+              </button>
+            </div>
 
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            < img className="rp_full" src={active} alt="Preview" />
+            <img
+              className="rp_full"
+              src={active}
+              alt="Preview"
+            />
 
-            <a className="rp_download" href= >
+            <a
+              className="rp_download"
+              href= "_blank"
+              rel="noreferrer"
+            >
               Download
             </a >
           </div>
