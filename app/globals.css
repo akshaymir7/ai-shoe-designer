@@ -771,3 +771,85 @@ button:disabled{
 .rp_empty { padding: 18px; }
 .rp_emptyTitle { font-weight: 700; }
 .rp_emptySub { opacity: 0.7; font-size: 13px; margin-top: 6px; }
+/* Result panel header actions */
+.rp_head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.rp_actions { display: flex; align-items: center; gap: 10px; }
+
+.rp_download {
+  font-size: 12px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.92);
+  text-decoration: none;
+}
+.rp_download:hover { background: rgba(255,255,255,0.10); }
+.rp_download--disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* Stage clickable + zoom-on-hover */
+.rp_stage {
+  width: 100%;
+  height: 480px;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.10);
+  padding: 0;
+  cursor: zoom-in;
+  background: rgba(255,255,255,0.06);
+  display: block;
+}
+.rp_stageImg {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  transition: transform 180ms ease;
+  transform-origin: center;
+}
+.rp_stage:hover .rp_stageImg { transform: scale(1.03); }
+
+/* Modal */
+.rp_modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  z-index: 9999;
+}
+.rp_modalInner {
+  width: min(1100px, 96vw);
+  max-height: 92vh;
+  background: rgba(18,18,20,0.95);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 14px;
+  overflow: hidden;
+}
+.rp_modalTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.10);
+}
+.rp_close {
+  font-size: 12px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.92);
+  cursor: pointer;
+}
+.rp_close:hover { background: rgba(255,255,255,0.10); }
+
+.rp_full {
+  width: 100%;
+  height: calc(92vh - 56px);
+  object-fit: contain;
+  background: rgba(255,255,255,0.04);
+  display: block;
+}
