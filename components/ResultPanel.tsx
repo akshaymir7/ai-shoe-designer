@@ -1,151 +1,86 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 export type ResultPanelProps = {
-  title?: string;
+  title: string;
   loading: boolean;
   images: string[];
-  emptyText?: string; // (optional) text shown when no results
+  emptyText?: string;
 };
 
 export default function ResultPanel({
-  title = 'Result',
+  title,
   loading,
   images,
   emptyText = 'No result yet',
 }: ResultPanelProps) {
-  const [active, setActive] = useState<string | null>(null);
-  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState<string | undefined>(undefined);
 
   useEffect(() => {
-    if (images?.length) setActive(images[0]);
-    else setActive(null);
-  }, [images]);
-
-  const hasImages = (images?.length ?? 0) > 0;
-
-  const activeIndex = useMemo(() => {
-    if (!active) return -1;
-    return images.indexOf(active);
-  }, [active, images]);
-
-  async function downloadActive() {
-    if (!active) return;
-    try {
-      const res = await fetch(active, { mode: 'cors' });
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `shoe-design-${Date.now()}.png`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-
-      URL.revokeObjectURL(url);
-    } catch (e) {
-      // fallback: open in new tab (works even if CORS blocks fetch)
-      window.open(active, '_blank', 'noopener,noreferrer');
+    if (images.length > 0) {
+      setActive(images[0]);
+    } else {
+      setActive(undefined);
     }
-  }
+  }, [images]);
 
   return (
     <div className="panel rp">
+      {/* Header */}
       <div className="panelHeader rp_head">
         <div className="rp_title">{title}</div>
-
-        {hasImages && (
-          <div className="rp_actions">
-            <button
-              type="button"
-              className="btn btnGhost"
-              onClick={() => setOpen(true)}
-              title="Open preview"
-            >
-              Preview
-            </button>
-            <button
-              type="button"
-              className="btn"
-              onClick={downloadActive}
-              title="Download current"
-            >
-              Download
-            </button>
-          </div>
-        )}
       </div>
 
+      {/* Body */}
       <div className="panelBody rp_body">
         {loading && (
-          <div className="rp_state">
-            <div className="spinner" />
-            <div className="muted">Generating images…</div>
+          <div className="rp_empty">
+            <div className="rp_emptyTitle">Generating…</div>
+            <div className="rp_emptySub">Please wait</div>
           </div>
         )}
 
-        {!loading && !hasImages && (
-          <div className="rp_state">
-            <div className="muted">{emptyText}</div>
+        {!loading && images.length === 0 && (
+          <div className="rp_empty">
+            <div className="rp_emptyTitle">{emptyText}</div>
+            <div className="rp_emptySub">Generated images will appear here</div>
           </div>
         )}
 
-        {!loading && hasImages && (
+        {!loading && images.length > 0 && active && (
           <>
-            <button
-              type="button"
-              className="rp_stage"
-              onClick={() => setOpen(true)}
-              title="Click to preview"
-            >
+            {/* Stage */}
+            <div className="rp_stage rp_stage--grey rp_fit--contain">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              < img className="rp_stageImg" src={active ?? images[0]} alt="Result" />
-            </button>
+              <img
+                className="rp_stageImg"
+                src={active}
+                alt="Generated result"
+              />
+            </div>
 
-            {images.length > 1 && (
-              <div className="rp_strip">
-                {images.map((src, i) => (
-                  <button
-                    type="button"
-                    key={src + i}
-                    className={'rp_thumbBtn ' + (src === active ? 'isActive' : '')}
-                    onClick={() => setActive(src)}
-                    title={`Result ${i + 1}`}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    < img className="rp_thumb" src={src} alt={`thumb ${i + 1}`} />
-                  </button>
-                ))}
-              </div>
-            )}
+            {/* Thumbnails */}
+            <div className="rp_thumbs">
+              {images.map((url, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  className={`rp_thumbBtn ${url === active ? 'isActive' : ''}`}
+                  onClick={() => setActive(url)}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    className="rp_thumbImg"
+                    src={url}
+                    alt={`Result ${i + 1}`}
+                  />
+                </button>
+              ))}
+            </div>
           </>
         )}
       </div>
-
-      {open && active && (
-        <div className="rp_modal" role="dialog" aria-modal="true">
-          <div className="rp_modalTop">
-            <div className="rp_modalTitle">
-              Preview {activeIndex >= 0 ? `(${activeIndex + 1}/${images.length})` : ''}
-            </div>
-            <div className="rp_modalActions">
-              <button type="button" className="btn btnGhost" onClick={downloadActive}>
-                Download
-              </button>
-              <button type="button" className="btn" onClick={() => setOpen(false)}>
-                Close
-              </button>
-            </div>
-          </div>
-
-          <div className="rp_modalBody" onClick={() => setOpen(false)}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            < img className="rp_full" src={active} alt="Preview" />
-          </div>
-        </div>
-      )}
     </div>
   );
 }
