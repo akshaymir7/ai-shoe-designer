@@ -1,21 +1,21 @@
-'use client';
+"use client";
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from "react";
 
-type BgMode = 'white' | 'grey';
-
-export type ResultPanelProps = {
+type ResultPanelProps = {
   title: string;
   loading: boolean;
-  images: string[];
-  stageHeight?: number; // default 480
-  emptyText?: string;   // default "No results yet"
+  images: string[]; // expects absolute URLs OR data: URLs OR blob: URLs
 };
 
-async function downloadImage(url: string, filename = 'result.png') {
-  // If it's already a data URL, download directly.
-  if (url.startsWith('data:')) {
-    const a = document.createElement('a');
+function safeFilename(name: string) {
+  return name.replace(/[^\w.-]+/g, "_");
+}
+
+async function downloadImage(url: string, filename: string) {
+  // If it's already a data/blob URL, anchor download usually works directly
+  if (url.startsWith("data:") || url.startsWith("blob:")) {
+    const a = document.createElement("a");
     a.href = url;
     a.download = filename;
     document.body.appendChild(a);
@@ -24,173 +24,130 @@ async function downloadImage(url: string, filename = 'result.png') {
     return;
   }
 
-  // Fetch and convert to Blob so browser download works more reliably.
-  const res = await fetch(url, { mode: 'cors' });
+  // Otherwise fetch and convert to blob (handles CORS only if server allows it)
+  const res = await fetch(url, { mode: "cors" });
   if (!res.ok) throw new Error(`Download failed: ${res.status}`);
-
   const blob = await res.blob();
   const blobUrl = URL.createObjectURL(blob);
 
-  const a = document.createElement('a');
+  const a = document.createElement("a");
   a.href = blobUrl;
   a.download = filename;
   document.body.appendChild(a);
   a.click();
   a.remove();
 
-  URL.revokeObjectURL(blobUrl);
+  // cleanup
+  setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
 }
 
-export default function ResultPanel({
-  title,
-  loading,
-  images,
-  stageHeight = 480,
-  emptyText = 'No results yet',
-}: ResultPanelProps) {
+export default function ResultPanel({ title, loading, images }: ResultPanelProps) {
   const [activeIndex, setActiveIndex] = useState(0);
-  const [bg, setBg] = useState<BgMode>('white');
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [bg, setBg] = useState<"white" | "grey">("white");
   const [imgError, setImgError] = useState(false);
 
-  // Reset when new images arrive
   useEffect(() => {
+    // reset when new results come
     setActiveIndex(0);
     setImgError(false);
-  }, [images]);
+  }, [images?.length]);
 
-  const active = images?.[activeIndex] ?? null;
+  const activeSrc = useMemo(() => images?.[activeIndex] || "", [images, activeIndex]);
 
-  const stageStyle = useMemo(() => {
-    const bgColor = bg === 'white' ? '#ffffff' : '#e9ecf1';
-    return {
-      height: stageHeight,
-      background: bgColor,
-    } as React.CSSProperties;
-  }, [bg, stageHeight]);
+  const stageClass = bg === "white" ? "rp_stage rp_bgWhite" : "rp_stage rp_bgGrey";
 
-  const canShow = !!active && !loading;
+  const handleOpen = () => {
+    if (!activeSrc) return;
+    window.open(activeSrc, "_blank", "noopener,noreferrer");
+  };
+
+  const handleDownload = async () => {
+    if (!activeSrc) return;
+
+    const filename = safeFilename(`ai-shoe-result-${activeIndex + 1}.png`);
+
+    try {
+      await downloadImage(activeSrc, filename);
+    } catch (e) {
+      console.error(e);
+      alert("Download failed. Try smaller images (<10MB) or open image and save manually.");
+    }
+  };
 
   return (
-    <div className="panel rp">
-      <div className="panelHeader rp_head">
+    <div className="rp_panel">
+      <div className="rp_header">
         <div className="rp_title">{title}</div>
 
-        <div className="rp_tools">
-          <div className="rp_toggle">
-            <button
-              type="button"
-              className={`rp_toggleBtn ${bg === 'white' ? 'isActive' : ''}`}
-              onClick={() => setBg('white')}
-              disabled={loading}
-              title="White background"
-            >
-              White
-            </button>
-            <button
-              type="button"
-              className={`rp_toggleBtn ${bg === 'grey' ? 'isActive' : ''}`}
-              onClick={() => setBg('grey')}
-              disabled={loading}
-              title="Grey background"
-            >
-              Grey
-            </button>
-          </div>
+        <div className="rp_actions">
+          <button
+            type="button"
+            className={`rp_btn ${bg === "white" ? "rp_btnActive" : ""}`}
+            onClick={() => setBg("white")}
+            disabled={loading}
+          >
+            White
+          </button>
+          <button
+            type="button"
+            className={`rp_btn ${bg === "grey" ? "rp_btnActive" : ""}`}
+            onClick={() => setBg("grey")}
+            disabled={loading}
+          >
+            Grey
+          </button>
 
           <button
             type="button"
-            className="rp_download"
-            disabled={!active || loading}
-            onClick={async () => {
-              if (!active) return;
-              try {
-                await downloadImage(active, `result-${activeIndex + 1}.png`);
-              } catch (e) {
-                console.error(e);
-                alert('Download failed (bad URL or blocked by CORS).');
-              }
-            }}
-            title="Download selected image"
+            className="rp_btn rp_btnPrimary"
+            onClick={handleDownload}
+            disabled={loading || !activeSrc}
+            title={!activeSrc ? "No image to download" : "Download active image"}
           >
             Download
           </button>
         </div>
       </div>
 
-      <div className="panelBody rp_body">
+      <div className={stageClass}>
         {loading ? (
-          <div className="rp_empty">
+          <div className="rp_loading">
             <div className="rp_spinner" />
-            <div className="rp_emptyText">Generating…</div>
+            <div className="rp_loadingText">Generating…</div>
           </div>
-        ) : !images || images.length === 0 ? (
-          <div className="rp_empty">
-            <div className="rp_emptyText">{emptyText}</div>
-          </div>
+        ) : !activeSrc ? (
+          <div className="rp_empty">No results yet</div>
         ) : (
-          <>
-            <div className="rp_stage" style={stageStyle}>
-              {imgError ? (
-                <div className="rp_error">
-                  Image failed to load (bad URL or blocked).
-                </div>
-              ) : (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  className="rp_img"
-                  src={active ?? ''}
-                  alt="Result"
-                  onClick={() => canShow && setIsModalOpen(true)}
-                  onError={() => setImgError(true)}
-                />
-              )}
-
-              <div className="rp_hint">
-                {canShow ? 'Click image to zoom' : ''}
-              </div>
-            </div>
-
-            <div className="rp_thumbs">
-              {images.map((u, i) => (
-                <button
-                  key={`${u}-${i}`}
-                  type="button"
-                  className={`rp_thumb ${i === activeIndex ? 'isActive' : ''}`}
-                  onClick={() => {
-                    setActiveIndex(i);
-                    setImgError(false);
-                  }}
-                  title={`View ${i + 1}`}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  < img className="rp_thumbImg" src={u} alt={`thumb-${i}`} />
-                </button>
-              ))}
-            </div>
-          </>
+          <button type="button" className="rp_stageBtn" onClick={handleOpen} title="Click to open full size">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={activeSrc}
+              alt="Result"
+              className={`rp_img ${imgError ? "rp_imgHidden" : ""}`}
+              onError={() => setImgError(true)}
+            />
+            {imgError && <div className="rp_error">Image failed to load (bad URL or blocked).</div>}
+          </button>
         )}
       </div>
 
-      {isModalOpen && active && (
-        <div
-          className="rp_modal"
-          role="dialog"
-          aria-modal="true"
-          onClick={() => setIsModalOpen(false)}
-        >
-          <div className="rp_modalInner" onClick={(e) => e.stopPropagation()}>
+      {!loading && images?.length > 0 && (
+        <div className="rp_thumbs">
+          {images.map((src, idx) => (
             <button
+              key={`${src}-${idx}`}
               type="button"
-              className="rp_close"
-              onClick={() => setIsModalOpen(false)}
+              className={`rp_thumb ${idx === activeIndex ? "rp_thumbActive" : ""}`}
+              onClick={() => {
+                setActiveIndex(idx);
+                setImgError(false);
+              }}
+              title={`thumb-${idx}`}
             >
-              Close
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              < img src={src} alt={`thumb-${idx}`} className="rp_thumbImg" onError={() => {}} />
             </button>
-
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            < img className="rp_full" src={active} alt="Preview" />
-          </div>
+          ))}
         </div>
       )}
     </div>
