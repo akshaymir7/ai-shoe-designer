@@ -156,7 +156,7 @@ export default function Page() {
           title="Result"
           loading={loading}
           images={results}
-        
+          emptyText="No result yet"
         />
       </div>
     </div>

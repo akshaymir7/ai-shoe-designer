@@ -508,3 +508,106 @@ button:disabled{
   .rp_skeletonWrap{ grid-template-columns: 1fr; }
   .rp_grid{ grid-template-columns: 1fr; }
 }
+/* ===== Result Panel ===== */
+.rp {
+  min-height: 520px;
+}
+
+.rp_head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.rp_title {
+  font-weight: 700;
+}
+
+.rp_actions {
+  display: flex;
+  gap: 10px;
+}
+
+.rp_btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.92);
+  text-decoration: none;
+  cursor: pointer;
+  user-select: none;
+}
+
+.rp_btn:hover {
+  background: rgba(255,255,255,0.10);
+}
+
+.rp_btn.isDisabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.rp_body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rp_empty {
+  color: rgba(255,255,255,0.70);
+  padding: 12px 0;
+}
+
+/* This is the key: constrain the big generated image */
+.rp_view {
+  width: 100%;
+  height: 420px;         /* controls preview height */
+  border-radius: 14px;
+  border: 1px dashed rgba(255,255,255,0.18);
+  background: rgba(0,0,0,0.18);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rp_img {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  display: block;
+}
+
+/* Thumbnails */
+.rp_thumbs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.rp_thumb {
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.06);
+  border-radius: 12px;
+  padding: 0;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.rp_thumb.isActive {
+  outline: 2px solid rgba(255,255,255,0.35);
+}
+
+.rp_thumbImg {
+  width: 100%;
+  height: 84px;
+  object-fit: cover;
+  display: block;
+}
