@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap');
 :root{
   --bg0:#070a10;
   --bg1:#0b1220;
@@ -1908,4 +1909,59 @@ h1, h2, h3 {
 .result-panel button:hover,
 .rp_panel button:hover {
   background: rgba(255, 255, 255, 0.12);
+}
+/* Force the RESULT preview "stage" to be dark (overrides inline/white bg) */
+.result-panel .stage,
+.result-panel .preview,
+.result-panel .canvas,
+.result-panel .viewer,
+.rp_panel .stage,
+.rp_panel .preview,
+.rp_panel .canvas,
+.rp_panel .viewer {
+  background: rgba(0, 0, 0, 0.35) !important;
+  border: 1px solid rgba(255, 255, 255, 0.10) !important;
+}
+
+/* If the white is coming from the FIRST child wrapper inside the panel */
+.result-panel > div,
+.rp_panel > div {
+  background: transparent;
+}
+/* =========================
+   Global Font Upgrade
+   ========================= */
+
+html,
+body {
+  font-family: 'Manrope', system-ui, -apple-system, BlinkMacSystemFont,
+    'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-weight: 400;
+  letter-spacing: -0.015em;
+  text-rendering: optimizeLegibility;
+}
+
+/* Headings */
+h1, h2, h3, h4 {
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+/* Buttons & UI controls */
+button,
+input,
+textarea,
+select,
+label {
+  font-family: inherit;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+/* Small UI text (helps file names & KB sizes) */
+small,
+.meta,
+.caption {
+  font-weight: 500;
+  opacity: 0.85;
 }
