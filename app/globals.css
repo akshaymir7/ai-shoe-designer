@@ -1002,3 +1002,15 @@ button:disabled{
   border-radius:8px;
   display:block;
 }
+/* nicer stage background (works for both BG modes) */
+.rp_stage.rp_bgWhite{
+  background:
+    radial-gradient(1200px 600px at 50% 35%, rgba(0,0,0,0.05), transparent 55%),
+    linear-gradient(0deg, #ffffff, #ffffff);
+}
+
+.rp_stage.rp_bgGray{
+  background:
+    radial-gradient(1200px 600px at 50% 35%, rgba(0,0,0,0.08), transparent 55%),
+    linear-gradient(0deg, #efefef, #efefef);
+}
