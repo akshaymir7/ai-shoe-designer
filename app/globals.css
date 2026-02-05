@@ -853,3 +853,19 @@ button:disabled{
   background: rgba(255,255,255,0.04);
   display: block;
 }
+/* Make sure stage never crops */
+.rp_stageImg,
+.rp_full {
+  object-fit: contain !important;
+}
+
+/* Give a little breathing room so edges never kiss the frame */
+.rp_stage {
+  padding: 10px;
+}
+
+.rp_stageImg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
