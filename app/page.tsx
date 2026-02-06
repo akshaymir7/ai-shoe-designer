@@ -6,7 +6,7 @@ import PromptWithMic from '@/components/PromptWithMic';
 import ResultPanel from '@/components/ResultPanel';
 
 export default function Page() {
-  const [hardware, setHardware] = useState<File | null>(null);
+  const [accessory, setAccessory] = useState<File | null>(null);
   const [material, setMaterial] = useState<File | null>(null);
   const [sole, setSole] = useState<File | null>(null);
   const [inspiration, setInspiration] = useState<File | null>(null);
@@ -20,7 +20,7 @@ export default function Page() {
     return `Example: "Use the buckle from image 1. Use only the material texture from image 2. Keep the sole shape from image 3. Make a ladies ballerina. Realistic photoshoot."`;
   }, []);
 
-  const canGenerate = Boolean(accessory && material) && !loading;
+  const canGenerate = Boolean(hardware && material) && !loading;
 
   function resetAll() {
     setAccessory(null);
@@ -124,8 +124,8 @@ export default function Page() {
               <div className="stack">
                 <UploadBox
   label="Hardware"
-  file={accesory}
-  onChange={setHardware}
+  file={accessory}
+  onChange={setAccessory}
 />
 
                 <UploadBox
