@@ -6,7 +6,7 @@ import PromptWithMic from '@/components/PromptWithMic';
 import ResultPanel from '@/components/ResultPanel';
 
 export default function Page() {
-  const [accessory, setAccessory] = useState<File | null>(null);
+  const [hardware, setHardware] = useState<File | null>(null);
   const [material, setMaterial] = useState<File | null>(null);
   const [sole, setSole] = useState<File | null>(null);
   const [inspiration, setInspiration] = useState<File | null>(null);
@@ -23,7 +23,7 @@ export default function Page() {
   const canGenerate = Boolean(hardware && material) && !loading;
 
   function resetAll() {
-    setAccessory(null);
+    setHardware(null);
     setMaterial(null);
     setSole(null);
     setInspiration(null);
@@ -33,8 +33,8 @@ export default function Page() {
   }
 
   async function handleGenerate() {
-    if (!accessory || !material) {
-      alert('Accessory + Material are required.');
+    if (!hardware || !material) {
+      alert('Hardware + Material are required.');
       return;
     }
 
@@ -44,7 +44,7 @@ export default function Page() {
     try {
       // IMPORTANT: send multipart/form-data via FormData (do NOT set Content-Type header)
       const fd = new FormData();
-      fd.append('accessory', accessory);
+      fd.append('hardware', hardware);
       fd.append('material', material);
 
       if (sole) fd.append('sole', sole);
@@ -85,7 +85,7 @@ export default function Page() {
       <h1>AI Shoe Designer</h1>
 
       <p className="subtitle">
-        Upload inputs, add a prompt, then generate. Accessory + Material are required.
+        Upload inputs, add a prompt, then generate. Hardware + Material are required.
       </p >
 
       <div className="actions">
@@ -124,8 +124,8 @@ export default function Page() {
               <div className="stack">
                 <UploadBox
   label="Hardware"
-  file={accessory}
-  onChange={setAccessory}
+  file={hardware}
+  onChange={setHardware}
 />
 
                 <UploadBox
