@@ -2208,3 +2208,16 @@ button {
   font-weight: 700;
   letter-spacing: 0.04em;
 }
+/* HARD OVERRIDE: never allow the Result stage to be white */
+.rp_stage,
+.rp_stageDark,
+.rp_stageMid {
+  background: radial-gradient(800px 320px at 50% 40%, rgba(255,255,255,0.05), transparent 70%),
+              rgba(0,0,0,0.34) !important;
+}
+
+/* If you click Grey toggle, we swap class, so keep this too */
+.rp_stageMid {
+  background: radial-gradient(800px 320px at 50% 40%, rgba(255,255,255,0.04), transparent 70%),
+              rgba(255,255,255,0.10) !important;
+}
