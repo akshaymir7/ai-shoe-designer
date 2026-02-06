@@ -6,7 +6,7 @@ import PromptWithMic from '@/components/PromptWithMic';
 import ResultPanel from '@/components/ResultPanel';
 
 export default function Page() {
-  const [accessory, setAccessory] = useState<File | null>(null);
+  const [hardware, setHardware] = useState<File | null>(null);
   const [material, setMaterial] = useState<File | null>(null);
   const [sole, setSole] = useState<File | null>(null);
   const [inspiration, setInspiration] = useState<File | null>(null);
@@ -123,32 +123,26 @@ export default function Page() {
             <div className="panelBody">
               <div className="stack">
                 <UploadBox
-                  label="1) Accessory / Hardware"
-                  required
-                  file={accessory}
-                  onChange={setAccessory}
-                />
+  label="Hardware"
+  file={accesory}
+  onChange={setHardware}
+/>
 
                 <UploadBox
-                  label="2) Upper Material"
-                  required
-                  file={material}
-                  onChange={setMaterial}
-                />
-
+  label="Material"
+  file={material}
+  onChange={setMaterial}
+/>
                 <UploadBox
-                  label="3) Sole / Bottom"
-                  optional
-                  file={sole}
-                  onChange={setSole}
-                />
-
+  label="Sole"
+  file={sole}
+  onChange={setSole}
+/>
                 <UploadBox
-                  label="4) Inspiration (optional)"
-                  optional
-                  file={inspiration}
-                  onChange={setInspiration}
-                />
+  label="Inspiration"
+  file={inspiration}
+  onChange={setInspiration}
+/>
               </div>
 
               <div style={{ marginTop: 14 }}>
