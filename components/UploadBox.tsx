@@ -1,151 +1,154 @@
-'use client';
+// components/UploadBox.tsx
+"use client";
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from "react";
 
-type Props = {
+type UploadBoxProps = {
   label: string;
-  required?: boolean;
-  optional?: boolean;
   file: File | null;
-  onChange: React.Dispatch<React.SetStateAction<File | null>>;
-  accept?: string;
-  hint?: string;
-  disabled?: boolean;
+  onChange: (file: File | null) => void;
+
+  // page.tsx currently passes this:
+  optional?: boolean;
+
+  // some places may pass this:
+  required?: boolean;
 };
+
+function normalizeLabel(raw: string) {
+  const s = (raw || "").trim();
+  const lower = s.toLowerCase();
+
+  if (lower.includes("accessory") || lower.includes("hardware")) return "Hardware";
+  if (lower.includes("upper") || lower.includes("material")) return "Material";
+  if (lower.includes("sole") || lower.includes("bottom")) return "Sole";
+  if (lower.includes("inspiration")) return "Inspiration";
+
+  return s.replace(/\(optional\)/gi, "").replace(/\boptional\b/gi, "").trim();
+}
 
 export default function UploadBox({
   label,
-  required,
-  optional,
   file,
   onChange,
-  accept = 'image/png,image/jpeg,image/webp',
-  hint,
-  disabled,
-}: Props) {
+  optional,
+  required,
+}: UploadBoxProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const [isDragOver, setIsDragOver] = useState(false);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState(false);
 
-  const badge = useMemo(() => {
-    if (required) return { text: 'Required', cls: 'ub_badge ub_badgeReq' };
-    if (optional) return { text: 'Optional', cls: 'ub_badge ub_badgeOpt' };
-    return null;
-  }, [required, optional]);
+  const displayLabel = useMemo(() => normalizeLabel(label), [label]);
 
-  useEffect(() => {
-    if (!file) {
-      setPreviewUrl(null);
-      return;
-    }
-    const url = URL.createObjectURL(file);
-    setPreviewUrl(url);
-    return () => URL.revokeObjectURL(url);
+  const previewUrl = useMemo(() => {
+    if (!file) return null;
+    return URL.createObjectURL(file);
   }, [file]);
 
-  function pickFile() {
-    if (disabled) return;
+  React.useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
+
+  function openPicker() {
     inputRef.current?.click();
   }
 
-  function setFromFileList(files: FileList | null) {
-    if (!files || files.length === 0) return;
-    const f = files[0];
+  function handlePicked(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0] ?? null;
+    onChange(f);
+    e.target.value = "";
+  }
+
+  function handleDrop(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(false);
+
+    const f = e.dataTransfer.files?.[0] ?? null;
+    if (!f) return;
+    if (!f.type.startsWith("image/")) return;
+
     onChange(f);
   }
 
-  function onInputChange(e: React.ChangeEvent<HTMLInputElement>) {
-    setFromFileList(e.target.files);
-    // allow selecting same file again
-    e.target.value = '';
-  }
-
-  function onDrop(e: React.DragEvent<HTMLDivElement>) {
+  function handleDragOver(e: React.DragEvent<HTMLDivElement>) {
     e.preventDefault();
     e.stopPropagation();
-    setIsDragOver(false);
-    if (disabled) return;
-    setFromFileList(e.dataTransfer.files);
+    setDragOver(true);
   }
 
-  function onDragOver(e: React.DragEvent<HTMLDivElement>) {
+  function handleDragLeave(e: React.DragEvent<HTMLDivElement>) {
     e.preventDefault();
     e.stopPropagation();
-    if (disabled) return;
-    setIsDragOver(true);
+    setDragOver(false);
   }
 
-  function onDragLeave(e: React.DragEvent<HTMLDivElement>) {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragOver(false);
-  }
-
-  function removeFile() {
-    if (disabled) return;
-    onChange(null);
-  }
+  const showRequiredPill = Boolean(required) && !optional;
 
   return (
-    <div className="ub_wrap">
-      <div className="ub_top">
-        <div className="ub_labelRow">
-          <div className="ub_label">{label}</div>
-          {badge && <div className={badge.cls}>{badge.text}</div>}
+    <div className="uploadBox">
+      <div className="uploadHeader">
+        <div className="uploadTitle">
+          <span className="uploadTitleText">{displayLabel}</span>
+          {showRequiredPill ? <span className="pill pillRequired">Required</span> : null}
+          {/* Optional pill intentionally removed */}
         </div>
-        {hint ? <div className="ub_hint">{hint}</div> : null}
       </div>
 
-      <div
-        className={[
-          'ub_drop',
-          isDragOver ? 'ub_dropDrag' : '',
-          disabled ? 'ub_dropDisabled' : '',
-          file ? 'ub_dropHasFile' : '',
-        ].join(' ')}
-        role="button"
-        tabIndex={0}
-        onClick={pickFile}
-        onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ' ? pickFile() : null)}
-        onDrop={onDrop}
-        onDragOver={onDragOver}
-        onDragLeave={onDragLeave}
-      >
-        <input
-          ref={inputRef}
-          type="file"
-          accept={accept}
-          className="ub_input"
-          onChange={onInputChange}
-          disabled={disabled}
-        />
-
-        {!file ? (
-          <div className="ub_empty">
-            <div className="ub_emptyTitle">Click to upload</div>
-            <div className="ub_emptySub">PNG / JPEG / WEBP</div>
-            <div className="ub_emptySub2">or drag &amp; drop</div>
+      {!file ? (
+        <div
+          className={`uploadDropzone ${dragOver ? "isDragOver" : ""}`}
+          onClick={openPicker}
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          role="button"
+          tabIndex={0}
+        >
+          <div className="uploadHint">
+            <div className="uploadHintTitle">Click to upload</div>
+            <div className="uploadHintSub">PNG / JPEG / WEBP</div>
+            <div className="uploadHintSub2">or drag &amp; drop</div>
           </div>
-        ) : (
-          <div className="ub_filled">
-            <div className="ub_thumbWrap">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              < img className="ub_thumb" src={previewUrl ?? ''} alt="preview" />
-            </div>
 
-            <div className="ub_fileMeta">
-              <div className="ub_fileName" title={file.name}>
-                {file.name}
-              </div>
-              <div className="ub_fileSize">{(file.size / 1024).toFixed(1)} KB</div>
-            </div>
+          <input
+            ref={inputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/jpg"
+            onChange={handlePicked}
+            style={{ display: "none" }}
+          />
+        </div>
+      ) : (
+        <div className="uploadFileRow">
+          <div className="uploadFileLeft" onClick={openPicker} role="button" tabIndex={0}>
+            {previewUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              < img className="uploadThumb" src={previewUrl} alt={file.name} />
+            ) : (
+              <div className="uploadThumbFallback" />
+            )}
 
-            <button className="ub_remove" onClick={(e) => (e.stopPropagation(), removeFile())} type="button">
-              Remove
-            </button>
+            <div className="uploadMeta">
+              <div className="uploadName">{file.name}</div>
+              <div className="uploadSize">{Math.round(file.size / 1024)} KB</div>
+            </div>
           </div>
-        )}
-      </div>
+
+          <button className="btn btnSecondary" type="button" onClick={() => onChange(null)}>
+            Remove
+          </button>
+
+          <input
+            ref={inputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/jpg"
+            onChange={handlePicked}
+            style={{ display: "none" }}
+          />
+        </div>
+      )}
     </div>
   );
 }
