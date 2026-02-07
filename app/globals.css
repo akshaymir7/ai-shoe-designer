@@ -2444,3 +2444,110 @@ button {
 .result-panel-actions {
   gap: 10px !important;
 }
+/* ===== ResultPanel typography + selected glow ===== */
+
+.panelTitle{
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  font-weight: 800;
+  font-size: 14px;
+  opacity: .95;
+}
+
+.resultEmptyTitle{
+  font-weight: 800;
+  letter-spacing: .02em;
+  font-size: 16px;
+  margin-bottom: 6px;
+}
+
+.resultEmptySub{
+  opacity: .75;
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.resultTip{
+  margin-top: 10px;
+  font-size: 12px;
+  opacity: .7;
+}
+
+/* the stage frame should stay “glass” like left panel */
+.resultStage{ display:flex; flex-direction:column; }
+.resultFrame{
+  position: relative;
+  border-radius: 18px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(10,12,16,.35);
+  backdrop-filter: blur(10px);
+  min-height: 360px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.resultImage{
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display:block;
+}
+
+/* Thumbnails strip */
+.thumbStrip{
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+}
+
+@media (max-width: 900px){
+  .thumbStrip{ grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+.thumb{
+  position: relative;
+  padding: 0;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(10,12,16,.30);
+  cursor: pointer;
+  transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+}
+
+.thumb:hover{
+  transform: translateY(-1px);
+  border-color: rgba(255,255,255,.18);
+}
+
+.thumbImg{
+  width: 100%;
+  height: 74px;
+  object-fit: cover;
+  display: block;
+  filter: saturate(1.05) contrast(1.05);
+}
+
+.thumbIndex{
+  position:absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 4px 7px;
+  border-radius: 999px;
+  background: rgba(0,0,0,.45);
+  border: 1px solid rgba(255,255,255,.14);
+}
+
+/* ✅ Selected variation glow */
+.thumbSelected{
+  border-color: rgba(255,255,255,.40);
+  box-shadow:
+    0 0 0 2px rgba(255,255,255,.22),
+    0 0 22px rgba(120,160,255,.22),
+    0 10px 30px rgba(0,0,0,.35);
+}
