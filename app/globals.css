@@ -2551,3 +2551,99 @@ button {
     0 0 22px rgba(120,160,255,.22),
     0 10px 30px rgba(0,0,0,.35);
 }
+/* ===== Layout shells ===== */
+.appShell {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.topBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.topBarLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* ===== Variations control ===== */
+.variationControl {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(0,0,0,0.18);
+  backdrop-filter: blur(10px);
+}
+
+.variationLabel {
+  font-size: 12px;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  opacity: 0.78;
+  font-weight: 600;
+}
+
+.variationSelect {
+  height: 34px;
+  min-width: 76px;
+  border-radius: 12px;
+  padding: 0 10px;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(0,0,0,0.22);
+  color: rgba(255,255,255,0.92);
+  outline: none;
+}
+
+/* ===== Two column panels ===== */
+.twoCol {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  align-items: start;
+}
+
+/* (optional) stack on mobile */
+@media (max-width: 900px) {
+  .twoCol { grid-template-columns: 1fr; }
+}
+
+.panelCard {
+  border-radius: 18px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(0,0,0,0.18);
+  backdrop-filter: blur(12px);
+  overflow: hidden;
+}
+
+.panelHeader {
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* This ensures "Design inputs" and "Result" match perfectly */
+.panelTitle {
+  margin: 0;
+  font-size: 14px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 800;
+  color: rgba(255,255,255,0.92);
+}
+
+.panelBody {
+  padding: 14px 16px 16px;
+}
