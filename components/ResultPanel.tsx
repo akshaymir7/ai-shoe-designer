@@ -1,350 +1,258 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 
-type Mode = "dark" | "grey";
+type ThemeMode = "dark" | "grey";
 
 export type ResultPanelProps = {
-  title?: string;
+  title?: string;          // e.g. "RESULT"
   loading: boolean;
-  images: string[]; // urls (data urls or remote)
+  images: string[];        // array of image URLs/base64 strings
 };
 
 export default function ResultPanel({
-  title = "Result",
+  title = "RESULT",
   loading,
   images,
 }: ResultPanelProps) {
-  const hasImages = images && images.length > 0;
-
-  const [mode, setMode] = useState<Mode>("dark");
+  const [mode, setMode] = useState<ThemeMode>("dark");
   const [activeIndex, setActiveIndex] = useState(0);
 
-  // Keep index valid if images count changes
-  useEffect(() => {
-    if (!hasImages) {
-      setActiveIndex(0);
-      return;
-    }
-    if (activeIndex > images.length - 1) setActiveIndex(0);
-  }, [hasImages, images.length, activeIndex]);
-
   const activeSrc = useMemo(() => {
-    if (!hasImages) return "";
-    return images[activeIndex] || images[0] || "";
-  }, [hasImages, images, activeIndex]);
+    if (!images || images.length === 0) return "";
+    const safeIndex = Math.min(Math.max(activeIndex, 0), images.length - 1);
+    return images[safeIndex] ?? "";
+  }, [images, activeIndex]);
 
-  async function downloadOne(src: string) {
-    if (!src) return;
+  async function downloadActive() {
+    if (!activeSrc) return;
 
     try {
-      // If it's a data URL, download directly
-      if (src.startsWith("data:")) {
-        const a = document.createElement("a");
-        a.href = src;
-        a.download = `design-${activeIndex + 1}.png`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        return;
-      }
-
-      // Otherwise fetch as blob for reliable downloads
-      const res = await fetch(src, { cache: "no-store" });
-      if (!res.ok) throw new Error(`Download failed: ${res.status}`);
+      // supports both remote URLs and data URLs
+      const res = await fetch(activeSrc);
       const blob = await res.blob();
-
       const url = URL.createObjectURL(blob);
+
       const a = document.createElement("a");
       a.href = url;
-
-      // try to infer extension
-      const ext =
-        blob.type === "image/jpeg"
-          ? "jpg"
-          : blob.type === "image/webp"
-          ? "webp"
-          : "png";
-
-      a.download = `design-${activeIndex + 1}.${ext}`;
+      a.download = `ai-shoe-${Date.now()}.png`;
       document.body.appendChild(a);
       a.click();
       a.remove();
+
       URL.revokeObjectURL(url);
     } catch (e) {
       console.error(e);
-      alert("Download failed. Try again.");
+      alert("Download failed");
     }
   }
 
-  const surfaceBg =
-    mode === "dark"
-      ? "linear-gradient(180deg, rgba(20,24,33,0.92), rgba(12,14,20,0.92))"
-      : "linear-gradient(180deg, rgba(30,34,44,0.88), rgba(18,20,28,0.88))";
-
-  const stageBg =
-    mode === "dark"
-      ? "linear-gradient(180deg, rgba(10,12,18,0.65), rgba(8,10,14,0.65))"
-      : "linear-gradient(180deg, rgba(22,26,36,0.55), rgba(16,18,26,0.55))";
-
-  const chipBase: React.CSSProperties = {
+  const panelStyle: React.CSSProperties = {
+    borderRadius: 22,
     border: "1px solid rgba(255,255,255,0.12)",
-    background: "rgba(255,255,255,0.06)",
-    color: "rgba(255,255,255,0.88)",
-    padding: "8px 12px",
+    background:
+      "linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(0,0,0,0.18) 100%)",
+    backdropFilter: "blur(14px)",
+    WebkitBackdropFilter: "blur(14px)",
+    padding: 18,
+    height: "100%",
+    minHeight: 520,
+    boxShadow: "0 18px 60px rgba(0,0,0,0.35)",
+    display: "flex",
+    flexDirection: "column",
+    gap: 14,
+  };
+
+  const headerRow: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  };
+
+  const titleStyle: React.CSSProperties = {
+    letterSpacing: "0.10em",
+    fontWeight: 800,
+    fontSize: 18,
+    textTransform: "uppercase",
+    opacity: 0.95,
+  };
+
+  const btnRow: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+  };
+
+  const pillBtn = (active: boolean): React.CSSProperties => ({
     borderRadius: 999,
+    padding: "8px 12px",
     fontSize: 12,
     fontWeight: 700,
-    letterSpacing: 0.6,
+    letterSpacing: "0.06em",
+    textTransform: "uppercase",
+    border: "1px solid rgba(255,255,255,0.14)",
+    background: active ? "rgba(255,255,255,0.14)" : "rgba(0,0,0,0.12)",
+    color: "rgba(255,255,255,0.92)",
     cursor: "pointer",
-    userSelect: "none",
+    boxShadow: active ? "0 10px 30px rgba(0,0,0,0.30)" : "none",
+  });
+
+  const downloadBtn: React.CSSProperties = {
+    ...pillBtn(false),
+    padding: "8px 14px",
   };
 
-  const chipActive: React.CSSProperties = {
-    ...chipBase,
-    background: "rgba(255,255,255,0.14)",
-    border: "1px solid rgba(255,255,255,0.22)",
+  const stageBg =
+    mode === "grey"
+      ? "linear-gradient(180deg, rgba(255,255,255,0.08), rgba(0,0,0,0.18))"
+      : "linear-gradient(180deg, rgba(0,0,0,0.18), rgba(0,0,0,0.28))";
+
+  const stageStyle: React.CSSProperties = {
+    flex: 1,
+    borderRadius: 18,
+    border: "1px solid rgba(255,255,255,0.10)",
+    background: stageBg,
+    padding: 16,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+    overflow: "hidden",
   };
+
+  const innerFrame: React.CSSProperties = {
+    width: "100%",
+    height: "100%",
+    borderRadius: 16,
+    border: "1px dashed rgba(255,255,255,0.18)",
+    background: "rgba(0,0,0,0.10)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+    overflow: "hidden",
+  };
+
+  const emptyBox: React.CSSProperties = {
+    width: "min(520px, 92%)",
+    borderRadius: 14,
+    border: "1px solid rgba(255,255,255,0.12)",
+    background: "rgba(0,0,0,0.14)",
+    padding: "16px 18px",
+    textAlign: "center",
+  };
+
+  const tipStyle: React.CSSProperties = {
+    fontSize: 12,
+    opacity: 0.75,
+    marginTop: 6,
+  };
+
+  const thumbsRow: React.CSSProperties = {
+    display: images?.length ? "flex" : "none",
+    gap: 10,
+    overflowX: "auto",
+    paddingBottom: 2,
+  };
+
+  const thumbStyle = (active: boolean): React.CSSProperties => ({
+    width: 56,
+    height: 56,
+    borderRadius: 12,
+    border: active
+      ? "1px solid rgba(255,255,255,0.35)"
+      : "1px solid rgba(255,255,255,0.12)",
+    background: "rgba(0,0,0,0.18)",
+    overflow: "hidden",
+    flex: "0 0 auto",
+    cursor: "pointer",
+    boxShadow: active ? "0 16px 40px rgba(0,0,0,0.35)" : "none",
+  });
 
   return (
-    <section
-      style={{
-        borderRadius: 18,
-        padding: 14,
-        background: surfaceBg,
-        border: "1px solid rgba(255,255,255,0.10)",
-        boxShadow:
-          "0 20px 60px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.08)",
-        display: "flex",
-        flexDirection: "column",
-        minHeight: 520,
-      }}
-    >
-      {/* Header */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 12,
-          padding: "6px 6px 12px 6px",
-        }}
-      >
-        <div
-          style={{
-            fontSize: 18,
-            fontWeight: 900,
-            letterSpacing: 1.4,
-            textTransform: "uppercase",
-            color: "rgba(255,255,255,0.92)",
-          }}
-        >
-          {title}
-        </div>
+    <section style={panelStyle}>
+      <div style={headerRow}>
+        <div style={titleStyle}>{title}</div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div
-            onClick={() => setMode("dark")}
-            style={mode === "dark" ? chipActive : chipBase}
-            role="button"
-            aria-label="Dark surface"
-            title="Dark"
-          >
-            DARK
-          </div>
-          <div
-            onClick={() => setMode("grey")}
-            style={mode === "grey" ? chipActive : chipBase}
-            role="button"
-            aria-label="Grey surface"
-            title="Grey"
-          >
-            GREY
-          </div>
-
+        <div style={btnRow}>
           <button
-            onClick={() => downloadOne(activeSrc)}
-            disabled={!hasImages || loading}
-            style={{
-              ...chipBase,
-              cursor: !hasImages || loading ? "not-allowed" : "pointer",
-              opacity: !hasImages || loading ? 0.45 : 1,
-            }}
-            aria-label="Download"
-            title={!hasImages ? "Generate first" : "Download selected"}
+            type="button"
+            style={pillBtn(mode === "dark")}
+            onClick={() => setMode("dark")}
           >
-            DOWNLOAD
+            Dark
+          </button>
+          <button
+            type="button"
+            style={pillBtn(mode === "grey")}
+            onClick={() => setMode("grey")}
+          >
+            Grey
+          </button>
+          <button
+            type="button"
+            style={downloadBtn}
+            onClick={downloadActive}
+            disabled={!activeSrc}
+            aria-disabled={!activeSrc}
+          >
+            Download
           </button>
         </div>
       </div>
 
-      {/* Stage */}
-      <div
-        style={{
-          borderRadius: 18,
-          padding: 14,
-          background: stageBg,
-          border: "1px solid rgba(255,255,255,0.10)",
-          boxShadow:
-            "inset 0 1px 0 rgba(255,255,255,0.06), inset 0 -1px 0 rgba(0,0,0,0.35)",
-          flex: 1,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          position: "relative",
-          overflow: "hidden",
-          minHeight: 420,
-        }}
-      >
-        {/* subtle grid */}
-        <div
-          aria-hidden
-          style={{
-            position: "absolute",
-            inset: 0,
-            backgroundImage:
-              "linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px)",
-            backgroundSize: "46px 46px",
-            opacity: mode === "dark" ? 0.18 : 0.14,
-            pointerEvents: "none",
-          }}
-        />
-
-        {/* content */}
-        {!hasImages && !loading && (
-          <div
-            style={{
-              textAlign: "center",
-              maxWidth: 360,
-              padding: "18px 14px",
-              borderRadius: 14,
-              background: "rgba(0,0,0,0.18)",
-              border: "1px solid rgba(255,255,255,0.10)",
-              color: "rgba(255,255,255,0.86)",
-              boxShadow: "0 10px 30px rgba(0,0,0,0.22)",
-            }}
-          >
-            <div style={{ fontSize: 16, fontWeight: 900, letterSpacing: 0.3 }}>
-              Your design will appear here
+      <div style={stageStyle}>
+        <div style={innerFrame}>
+          {loading ? (
+            <div style={{ textAlign: "center", opacity: 0.85 }}>
+              <div style={{ fontWeight: 800, letterSpacing: "0.06em" }}>
+                Generating…
+              </div>
+              <div style={tipStyle}>Hang tight — cooking variations.</div>
             </div>
-            <div
+          ) : activeSrc ? (
+            // Using <img> (not next/image) to avoid domain config issues on Vercel
+            <img
+              src={activeSrc}
+              alt="Generated result"
               style={{
-                marginTop: 8,
-                fontSize: 13,
-                lineHeight: 1.4,
-                color: "rgba(255,255,255,0.65)",
+                maxWidth: "100%",
+                maxHeight: "100%",
+                objectFit: "contain",
+                borderRadius: 14,
+                boxShadow: "0 18px 60px rgba(0,0,0,0.45)",
               }}
-            >
-              Upload inputs on the left, then click <b>Generate</b> to preview.
+            />
+          ) : (
+            <div style={emptyBox}>
+              <div style={{ fontWeight: 900, fontSize: 16, opacity: 0.92 }}>
+                Your design will appear here
+              </div>
+              <div style={{ fontSize: 13, opacity: 0.78, marginTop: 6 }}>
+                Upload inputs on the left, then click Generate to preview.
+              </div>
+              <div style={tipStyle}>Tip: Generate 2–4 variations to compare quickly.</div>
             </div>
-          </div>
-        )}
-
-        {loading && (
-          <div
-            style={{
-              textAlign: "center",
-              padding: "18px 14px",
-              borderRadius: 14,
-              background: "rgba(0,0,0,0.18)",
-              border: "1px solid rgba(255,255,255,0.10)",
-              color: "rgba(255,255,255,0.86)",
-            }}
-          >
-            <div style={{ fontSize: 14, fontWeight: 900, letterSpacing: 0.6 }}>
-              GENERATING…
-            </div>
-            <div
-              style={{
-                marginTop: 8,
-                fontSize: 12,
-                color: "rgba(255,255,255,0.62)",
-              }}
-            >
-              Cooking variations. Hang tight.
-            </div>
-          </div>
-        )}
-
-        {hasImages && !loading && (
-          <img
-            src={activeSrc}
-            alt={`Result ${activeIndex + 1}`}
-            style={{
-              maxWidth: "100%",
-              maxHeight: "100%",
-              objectFit: "contain",
-              borderRadius: 14,
-              boxShadow: "0 18px 60px rgba(0,0,0,0.55)",
-              border: "1px solid rgba(255,255,255,0.10)",
-              background: "rgba(0,0,0,0.12)",
-            }}
-            onError={(e) => {
-              console.error("Image failed to load:", activeSrc);
-              (e.currentTarget as HTMLImageElement).style.display = "none";
-            }}
-          />
-        )}
+          )}
+        </div>
       </div>
 
-      {/* Thumbnails */}
-      <div style={{ marginTop: 12 }}>
-        {hasImages ? (
+      <div style={thumbsRow}>
+        {images?.map((src, i) => (
           <div
-            style={{
-              display: "flex",
-              gap: 10,
-              overflowX: "auto",
-              paddingBottom: 4,
-            }}
+            key={src + i}
+            style={thumbStyle(i === activeIndex)}
+            onClick={() => setActiveIndex(i)}
+            title={`Variation ${i + 1}`}
           >
-            {images.map((src, i) => (
-              <button
-                key={i}
-                onClick={() => setActiveIndex(i)}
-                style={{
-                  borderRadius: 12,
-                  padding: 0,
-                  border:
-                    i === activeIndex
-                      ? "2px solid rgba(255,255,255,0.55)"
-                      : "1px solid rgba(255,255,255,0.12)",
-                  background: "rgba(255,255,255,0.04)",
-                  cursor: "pointer",
-                  flex: "0 0 auto",
-                  width: 74,
-                  height: 54,
-                  overflow: "hidden",
-                  boxShadow:
-                    i === activeIndex ? "0 10px 30px rgba(0,0,0,0.35)" : "none",
-                }}
-                aria-label={`Select result ${i + 1}`}
-                title={`Result ${i + 1}`}
-              >
-                <img
-                  src={src}
-                  alt={`Thumb ${i + 1}`}
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "cover",
-                    opacity: i === activeIndex ? 1 : 0.85,
-                  }}
-                />
-              </button>
-            ))}
+            <img
+              src={src}
+              alt={`Thumb ${i + 1}`}
+              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            />
           </div>
-        ) : (
-          <div
-            style={{
-              fontSize: 12,
-              color: "rgba(255,255,255,0.45)",
-              padding: "6px 4px",
-            }}
-          >
-            Tip: Generate 2–4 variations to compare quickly.
-          </div>
-        )}
+        ))}
       </div>
     </section>
   );
