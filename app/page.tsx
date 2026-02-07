@@ -1,134 +1,194 @@
-// components/ResultPanel.tsx
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 
-type Props = {
-  title: string;
-  images: string[];
-  loading: boolean;
-};
+import UploadBox from "@/components/UploadBox";
+import ResultPanel from "@/components/ResultPanel";
 
-export default function ResultPanel({ title, images, loading }: Props) {
-  const [bgMode, setBgMode] = useState<"dark" | "grey">("dark");
-  const [selectedIndex, setSelectedIndex] = useState(0);
+export default function Page() {
+  const [hardware, setHardware] = useState<File | null>(null);
+  const [material, setMaterial] = useState<File | null>(null);
+  const [sole, setSole] = useState<File | null>(null);
+  const [inspiration, setInspiration] = useState<File | null>(null);
 
-  // Keep selection valid when images change
-  useEffect(() => {
-    if (!images?.length) {
-      setSelectedIndex(0);
+  const [prompt, setPrompt] = useState<string>("");
+  const [variations, setVariations] = useState<number>(4);
+
+  const [images, setImages] = useState<string[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
+
+  const canGenerate = useMemo(() => {
+    return Boolean(hardware && material) && !loading;
+  }, [hardware, material, loading]);
+
+  function resetAll() {
+    setHardware(null);
+    setMaterial(null);
+    setSole(null);
+    setInspiration(null);
+    setPrompt("");
+    setImages([]);
+    setLoading(false);
+  }
+
+  async function handleGenerate() {
+    if (!hardware || !material) {
+      alert("Hardware + Material are required.");
       return;
     }
-    setSelectedIndex((prev) => Math.min(prev, images.length - 1));
-  }, [images]);
 
-  const hasImages = Boolean(images && images.length > 0);
-
-  const selectedImage = useMemo(() => {
-    if (!hasImages) return "";
-    return images[selectedIndex] ?? images[0] ?? "";
-  }, [hasImages, images, selectedIndex]);
-
-  const surfaceClass =
-    bgMode === "dark" ? "resultSurface resultSurfaceDark" : "resultSurface resultSurfaceGrey";
-
-  const handleDownload = async () => {
-    if (!selectedImage) return;
     try {
-      const res = await fetch(selectedImage);
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
+      setLoading(true);
+      setImages([]);
 
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `design-${selectedIndex + 1}.png`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
+      const form = new FormData();
+      form.append("hardware", hardware);
+      form.append("material", material);
+      if (sole) form.append("sole", sole);
+      if (inspiration) form.append("inspiration", inspiration);
+      if (prompt.trim()) form.append("prompt", prompt.trim());
+      form.append("variations", String(variations));
 
-      URL.revokeObjectURL(url);
-    } catch (e) {
-      // fallback: open in new tab
-      window.open(selectedImage, "_blank", "noopener,noreferrer");
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        body: form,
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        const msg =
+          data?.error ||
+          data?.message ||
+          "Generate failed. Please try again.";
+        alert(msg);
+        return;
+      }
+
+      // Support a few common response shapes
+      const out: string[] =
+        data?.images || data?.urls || data?.result || data?.data || [];
+
+      if (!Array.isArray(out) || out.length === 0) {
+        alert("No images returned. Try again with a clearer prompt.");
+        return;
+      }
+
+      setImages(out);
+    } catch (e: any) {
+      alert(e?.message || "Something went wrong while generating.");
+    } finally {
+      setLoading(false);
     }
-  };
+  }
 
   return (
-    <section className="panelCard">
-      <div className="panelHeader">
-        <div className="panelTitle">{title}</div>
+    <main className="page">
+      {/* Header */}
+      <header className="hero">
+        <div className="heroInner">
+          <h1 className="heroTitle">AI SHOE DESIGNER</h1>
+          <p className="heroSub">
+            Upload design references and generate footwear concepts instantly.
+          </p >
 
-        <div className="panelActions">
-          <button
-            type="button"
-            className={`pillBtn ${bgMode === "dark" ? "pillActive" : ""}`}
-            onClick={() => setBgMode("dark")}
-          >
-            DARK
-          </button>
-          <button
-            type="button"
-            className={`pillBtn ${bgMode === "grey" ? "pillActive" : ""}`}
-            onClick={() => setBgMode("grey")}
-          >
-            GREY
-          </button>
-          <button
-            type="button"
-            className="pillBtn"
-            onClick={handleDownload}
-            disabled={!hasImages || loading}
-            aria-disabled={!hasImages || loading}
-          >
-            DOWNLOAD
-          </button>
-        </div>
-      </div>
+          {/* Top controls */}
+          <div className="topControls">
+            <button
+              className="btn"
+              type="button"
+              onClick={resetAll}
+              disabled={loading}
+            >
+              Reset
+            </button>
 
-      <div className="panelBody">
-        <div className={surfaceClass}>
-          {loading ? (
-            <div className="resultEmpty">
-              <div className="resultHeadline">Generating…</div>
-              <div className="resultSub">Hold tight. Variations will load below.</div>
+            <button
+              className="btn btnPrimary"
+              type="button"
+              onClick={handleGenerate}
+              disabled={!canGenerate}
+            >
+              {loading ? "Generating..." : "Generate"}
+            </button>
+
+            <div className="controlGroup">
+              <div className="controlLabel">DESIGN VARIATIONS</div>
+              <select
+                className="select"
+                value={variations}
+                onChange={(e) => setVariations(Number(e.target.value))}
+                disabled={loading}
+              >
+                <option value={2}>2</option>
+                <option value={3}>3</option>
+                <option value={4}>4</option>
+              </select>
             </div>
-          ) : hasImages ? (
-            <div className="resultStage">
-              <img
-                src={selectedImage}
-                alt={`Generated design ${selectedIndex + 1}`}
-                className="resultImage"
-                draggable={false}
+          </div>
+        </div>
+      </header>
+
+      {/* Main grid */}
+      <section className="contentGrid">
+        {/* Left: Inputs */}
+        <div className="panel">
+          <div className="panelHeader">
+            <div className="panelTitle">Design inputs</div>
+          </div>
+
+          <div className="panelBody">
+            <UploadBox
+              label="Hardware"
+              file={hardware}
+              onChange={setHardware}
+              required
+            />
+
+            <UploadBox
+              label="Material"
+              file={material}
+              onChange={setMaterial}
+              required
+            />
+
+            <UploadBox label="Sole" file={sole} onChange={setSole} />
+
+            <UploadBox
+              label="Inspiration"
+              file={inspiration}
+              onChange={setInspiration}
+            />
+
+            <div className="fieldBlock">
+              <div className="fieldLabel">Design notes</div>
+              <div className="fieldHint">
+                Example: “Use the buckle from image 1. Use only the material
+                texture from image 2. Keep the sole shape from image 3. Make a
+                ladies ballerina. Realistic photoshoot.”
+              </div>
+              <textarea
+                className="textarea"
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                placeholder="Describe silhouette, vibe, and details…"
+                rows={4}
               />
             </div>
-          ) : (
-            <div className="resultEmpty">
-              <div className="resultHeadline">Your design preview will appear here</div>
-              <div className="resultSub">
-                Upload references on the left, then click Generate to explore variations.
-              </div>
-              <div className="resultTip">Tip: Generate 2–4 variations to compare design directions.</div>
-            </div>
-          )}
+          </div>
         </div>
 
-        {/* Variations strip */}
-        <div className="resultStrip">
-          {hasImages &&
-            images.map((src, i) => (
-              <button
-                key={src + i}
-                type="button"
-                className={`thumb ${i === selectedIndex ? "thumbActive" : ""}`}
-                onClick={() => setSelectedIndex(i)}
-                title={`Variation ${i + 1}`}
-              >
-                < img src={src} alt={`Variation ${i + 1}`} className="thumbImg" draggable={false} />
-                <span className="thumbLabel">{i + 1}</span>
-              </button>
-            ))}
+        {/* Right: Result */}
+        <div className="panel">
+          <div className="panelHeader">
+            <div className="panelTitle">RESULT</div>
+          </div>
+
+          <div className="panelBody">
+            <ResultPanel title="RESULT" images={images} loading={loading} />
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
+    </main>
   );
 }
