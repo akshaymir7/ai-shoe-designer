@@ -1,151 +1,114 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo } from "react";
 
-type ThemeMode = "dark" | "grey";
-
-export type ResultPanelProps = {
-  title?: string;
-  images: string[]; // URLs returned from your generate route
+type ResultPanelProps = {
+  title?: string;           // keep compatible
   loading: boolean;
-
-  // optional: if your page passes these, it will use them
-  onDownload?: (url: string) => void;
-
-  // optional: if you already manage theme outside, you can ignore this
-  initialMode?: ThemeMode;
+  images: string[];
+  selectedIndex?: number;
+  onSelect?: (index: number) => void;
+  onDownload?: () => void;
+  mode?: "dark" | "grey";
+  onModeChange?: (m: "dark" | "grey") => void;
 };
 
 export default function ResultPanel({
-  title = "RESULT",
-  images,
+  title = "Preview",
   loading,
+  images,
+  selectedIndex = 0,
+  onSelect,
   onDownload,
-  initialMode = "dark",
+  mode = "dark",
+  onModeChange,
 }: ResultPanelProps) {
-  const [mode, setMode] = useState<ThemeMode>(initialMode);
-  const [selected, setSelected] = useState<number>(0);
+  const hasImages = images && images.length > 0;
 
-  // keep selected valid when new images arrive
-  useEffect(() => {
-    if (!images?.length) {
-      setSelected(0);
-      return;
-    }
-    setSelected((prev) => (prev >= images.length ? 0 : prev));
-  }, [images]);
-
-  const hasImages = Boolean(images && images.length > 0);
-
-  const selectedUrl = useMemo(() => {
-    if (!hasImages) return "";
-    return images[selected] ?? images[0];
-  }, [images, selected, hasImages]);
-
-  const handleDownload = () => {
-    if (!selectedUrl) return;
-    if (onDownload) return onDownload(selectedUrl);
-
-    // fallback: open image in new tab (browser download still works)
-    window.open(selectedUrl, "_blank", "noopener,noreferrer");
-  };
+  const tip = useMemo(() => {
+    if (loading) return "Exploring variations based on your inputs.";
+    if (!hasImages) return "Tip: Generate 2–4 variations to compare design directions.";
+    return "Tip: Click a variation to select it, then download.";
+  }, [loading, hasImages]);
 
   return (
-    <section
-      className={[
-        "panel",
-        "resultPanel",
-        mode === "grey" ? "panelGrey" : "panelDark",
-      ].join(" ")}
-    >
-      <header className="panelHeader">
+    <div className="panel">
+      <div className="panelHeader">
         <div className="panelTitle">{title}</div>
 
         <div className="panelActions">
-          <button
-            type="button"
-            className={["chip", mode === "dark" ? "chipActive" : ""].join(" ")}
-            onClick={() => setMode("dark")}
-          >
-            DARK
-          </button>
-          <button
-            type="button"
-            className={["chip", mode === "grey" ? "chipActive" : ""].join(" ")}
-            onClick={() => setMode("grey")}
-          >
-            GREY
-          </button>
-          <button
-            type="button"
-            className="chip chipPrimary"
-            onClick={handleDownload}
-            disabled={!hasImages}
-            title={hasImages ? "Download selected" : "No image to download"}
-          >
-            DOWNLOAD
-          </button>
-        </div>
-      </header>
-
-      <div className="resultStage">
-        <div className="resultFrame">
-          {!hasImages && !loading && (
-            <div className="resultEmpty">
-              <div className="resultEmptyTitle">Your design will appear here</div>
-              <div className="resultEmptySub">
-                Upload inputs on the left, then click Generate to preview.
-              </div>
-            </div>
+          {onModeChange && (
+            <>
+              <button
+                type="button"
+                className={`chip ${mode === "dark" ? "chipActive" : ""}`}
+                onClick={() => onModeChange("dark")}
+              >
+                Dark
+              </button>
+              <button
+                type="button"
+                className={`chip ${mode === "grey" ? "chipActive" : ""}`}
+                onClick={() => onModeChange("grey")}
+              >
+                Grey
+              </button>
+            </>
           )}
 
-          {loading && (
-            <div className="resultEmpty">
-              <div className="resultEmptyTitle">Generating…</div>
-              <div className="resultEmptySub">Hold tight. Variations will load below.</div>
-            </div>
-          )}
-
-          {hasImages && !loading && (
-            // Use plain img to avoid Next/Image domain config issues
-            <img
-              src={selectedUrl}
-              alt={`Result ${selected + 1}`}
-              className="resultImage"
-              draggable={false}
-            />
+          {onDownload && (
+            <button
+              type="button"
+              className="btnPrimary"
+              onClick={onDownload}
+              disabled={!hasImages}
+              title={!hasImages ? "Generate designs first" : "Download selected"}
+            >
+              Download
+            </button>
           )}
         </div>
+      </div>
 
-        {/* Thumbnails / Variations */}
+      <div className={`resultStage ${mode}`}>
+        {!hasImages && !loading && (
+          <div className="resultEmpty">
+            <div className="resultEmptyTitle">Your design preview will appear here</div>
+            <div className="resultEmptySub">
+              Upload references and generate to explore variations.
+            </div>
+          </div>
+        )}
+
+        {loading && (
+          <div className="resultEmpty">
+            <div className="resultEmptyTitle">Generating designs…</div>
+            <div className="resultEmptySub">Exploring variations based on your inputs.</div>
+          </div>
+        )}
+
         {hasImages && (
-          <div className="thumbStrip" aria-label="Variations">
-            {images.map((url, idx) => {
-              const isSelected = idx === selected;
+          <div className="resultGrid">
+            {images.map((src, i) => {
+              const active = i === selectedIndex;
               return (
                 <button
-                  key={`${url}-${idx}`}
+                  key={src + i}
                   type="button"
-                  className={[
-                    "thumb",
-                    isSelected ? "thumbSelected" : "",
-                  ].join(" ")}
-                  onClick={() => setSelected(idx)}
-                  aria-pressed={isSelected}
-                  title={`Variation ${idx + 1}`}
+                  className={`resultThumb ${active ? "resultThumbActive" : ""}`}
+                  onClick={() => onSelect?.(i)}
+                  aria-label={`Select variation ${i + 1}`}
                 >
-                  < img src={url} alt={`Thumb ${idx + 1}`} className="thumbImg" />
-                  <span className="thumbIndex">{idx + 1}</span>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  < img src={src} alt={`Variation ${i + 1}`} />
                 </button>
               );
             })}
           </div>
         )}
-
-        <div className="resultTip">
-          Tip: Generate 2–4 variations to compare quickly.
-        </div>
       </div>
-    </section>
+
+      <div className="panelTip">{tip}</div>
+    </div>
   );
 }

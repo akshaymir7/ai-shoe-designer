@@ -85,20 +85,20 @@ export default function Page() {
       <h1>AI Shoe Designer</h1>
 
       <p className="subtitle">
-        Upload inputs, add a prompt, then generate. Hardware + Material are required.
+        Upload design references and generate footwear concepts instantly.
       </p >
 
       <div className="actions">
         <button onClick={resetAll} disabled={loading}>
-          Reset
+          Clear inputs
         </button>
 
         <button onClick={handleGenerate} disabled={!canGenerate}>
-          {loading ? 'Generating…' : 'Generate'}
+          {loading ? 'Generating…' : 'Generate Designs'}
         </button>
 
         <div className="field inline" style={{ marginLeft: 12 }}>
-          <div className="label">Variations</div>
+          <div className="label">Design variations</div>
           <select
             className="select"
             value={String(n)}
@@ -146,7 +146,7 @@ export default function Page() {
               </div>
 
               <div style={{ marginTop: 14 }}>
-                <div className="label">Prompt (optional)</div>
+                <div className="label">"Design notes"</div>
                 <div className="muted" style={{ marginBottom: 8 }}>
                   {presetHint}
                 </div>
