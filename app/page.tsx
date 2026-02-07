@@ -177,8 +177,6 @@ export default function Page() {
               title="RESULT"
               images={images}
               loading={loading}
-              selectedIndex={selectedIndex}
-              onSelect={setSelectedIndex}
             />
           </div>
         </div>
