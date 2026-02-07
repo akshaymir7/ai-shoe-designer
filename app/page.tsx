@@ -1,28 +1,28 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
-
 import UploadBox from "@/components/UploadBox";
 import ResultPanel from "@/components/ResultPanel";
 
 export default function Page() {
-  const [hardware, setHardware] = useState<File | null>(null);
+  // Keep state names aligned with backend expectations
+  const [accessory, setAccessory] = useState<File | null>(null); // UI label: Hardware
   const [material, setMaterial] = useState<File | null>(null);
   const [sole, setSole] = useState<File | null>(null);
   const [inspiration, setInspiration] = useState<File | null>(null);
 
-  const [prompt, setPrompt] = useState<string>("");
+  const [prompt, setPrompt] = useState("");
   const [variations, setVariations] = useState<number>(4);
 
   const [images, setImages] = useState<string[]>([]);
-  const [loading, setLoading] = useState<boolean>(false);
+  const [loading, setLoading] = useState(false);
 
   const canGenerate = useMemo(() => {
-    return Boolean(hardware && material) && !loading;
-  }, [hardware, material, loading]);
+    return Boolean(accessory && material) && !loading;
+  }, [accessory, material, loading]);
 
   function resetAll() {
-    setHardware(null);
+    setAccessory(null);
     setMaterial(null);
     setSole(null);
     setInspiration(null);
@@ -32,7 +32,8 @@ export default function Page() {
   }
 
   async function handleGenerate() {
-    if (!hardware || !material) {
+    // Frontend guard
+    if (!accessory || !material) {
       alert("Hardware + Material are required.");
       return;
     }
@@ -42,10 +43,14 @@ export default function Page() {
       setImages([]);
 
       const form = new FormData();
-      form.append("hardware", hardware);
+
+      // IMPORTANT: backend likely expects these exact keys
+      form.append("accessory", accessory);
       form.append("material", material);
+
       if (sole) form.append("sole", sole);
       if (inspiration) form.append("inspiration", inspiration);
+
       if (prompt.trim()) form.append("prompt", prompt.trim());
       form.append("variations", String(variations));
 
@@ -65,7 +70,6 @@ export default function Page() {
         return;
       }
 
-      // Support a few common response shapes
       const out: string[] =
         data?.images || data?.urls || data?.result || data?.data || [];
 
@@ -84,7 +88,6 @@ export default function Page() {
 
   return (
     <main className="page">
-      {/* Header */}
       <header className="hero">
         <div className="heroInner">
           <h1 className="heroTitle">AI SHOE DESIGNER</h1>
@@ -92,14 +95,8 @@ export default function Page() {
             Upload design references and generate footwear concepts instantly.
           </p >
 
-          {/* Top controls */}
           <div className="topControls">
-            <button
-              className="btn"
-              type="button"
-              onClick={resetAll}
-              disabled={loading}
-            >
+            <button className="btn" type="button" onClick={resetAll} disabled={loading}>
               Reset
             </button>
 
@@ -129,9 +126,8 @@ export default function Page() {
         </div>
       </header>
 
-      {/* Main grid */}
       <section className="contentGrid">
-        {/* Left: Inputs */}
+        {/* LEFT PANEL */}
         <div className="panel">
           <div className="panelHeader">
             <div className="panelTitle">Design inputs</div>
@@ -140,8 +136,8 @@ export default function Page() {
           <div className="panelBody">
             <UploadBox
               label="Hardware"
-              file={hardware}
-              onChange={setHardware}
+              file={accessory}
+              onChange={setAccessory}
               required
             />
 
@@ -160,26 +156,43 @@ export default function Page() {
               onChange={setInspiration}
             />
 
-            <div className="fieldBlock">
-              <div className="fieldLabel">Design notes</div>
-              <div className="fieldHint">
-                Example: “Use the buckle from image 1. Use only the material
-                texture from image 2. Keep the sole shape from image 3. Make a
-                ladies ballerina. Realistic photoshoot.”
+            {/* DESIGN NOTES – force good sizing/styling */}
+            <div style={{ marginTop: 14 }}>
+              <div style={{ fontWeight: 800, letterSpacing: 0.3, marginBottom: 6 }}>
+                Design notes
               </div>
+
+              <div style={{ opacity: 0.85, fontSize: 13, lineHeight: 1.35, marginBottom: 10 }}>
+                Example: “Use the buckle from image 1. Use only the material texture from image 2.
+                Keep the sole shape from image 3. Make a ladies ballerina. Realistic photoshoot.”
+              </div>
+
               <textarea
-                className="textarea"
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 placeholder="Describe silhouette, vibe, and details…"
-                rows={4}
+                rows={5}
+                style={{
+                  width: "100%",
+                  minHeight: 120,
+                  resize: "vertical",
+                  padding: "12px 12px",
+                  borderRadius: 12,
+                  border: "1px solid rgba(255,255,255,0.14)",
+                  background: "rgba(0,0,0,0.28)",
+                  color: "rgba(255,255,255,0.92)",
+                  outline: "none",
+                  fontSize: 14,
+                  lineHeight: 1.4,
+                }}
               />
             </div>
           </div>
         </div>
 
-        {/* Right: Result */}
+        {/* RIGHT PANEL */}
         <div className="panel">
+          {/* Only one RESULT label (avoid double RESULT) */}
           <div className="panelHeader">
             <div className="panelTitle">RESULT</div>
           </div>
