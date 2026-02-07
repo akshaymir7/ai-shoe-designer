@@ -1,186 +1,134 @@
+// components/ResultPanel.tsx
 "use client";
 
-import React, { useMemo, useState } from "react";
-import UploadBox from "../components/UploadBox";
-import ResultPanel from "../components/ResultPanel";
-import PromptWithMic from "../components/PromptWithMic";
+import React, { useEffect, useMemo, useState } from "react";
 
-type BgMode = "dark" | "grey";
+type Props = {
+  title: string;
+  images: string[];
+  loading: boolean;
+};
 
-export default function Page() {
-  // REQUIRED
-  const [hardware, setHardware] = useState<File | null>(null);
-  const [material, setMaterial] = useState<File | null>(null);
+export default function ResultPanel({ title, images, loading }: Props) {
+  const [bgMode, setBgMode] = useState<"dark" | "grey">("dark");
+  const [selectedIndex, setSelectedIndex] = useState(0);
 
-  // OPTIONAL
-  const [sole, setSole] = useState<File | null>(null);
-  const [inspiration, setInspiration] = useState<File | null>(null);
-
-  const [prompt, setPrompt] = useState<string>("");
-
-  const [variations, setVariations] = useState<number>(4);
-  const [bgMode, setBgMode] = useState<BgMode>("dark");
-
-  const [loading, setLoading] = useState<boolean>(false);
-  const [images, setImages] = useState<string[]>([]);
-  const [selectedIndex, setSelectedIndex] = useState<number>(0);
-
-  const canGenerate = useMemo(() => {
-    return Boolean(hardware && material) && !loading;
-  }, [hardware, material, loading]);
-
-  function resetAll() {
-    setHardware(null);
-    setMaterial(null);
-    setSole(null);
-    setInspiration(null);
-    setPrompt("");
-    setImages([]);
-    setSelectedIndex(0);
-    setBgMode("dark");
-  }
-
-  async function handleGenerate() {
-    // ✅ FIX: validate hardware + material (NOT accessory)
-    if (!hardware || !material) {
-      alert("Hardware + Material are required.");
+  // Keep selection valid when images change
+  useEffect(() => {
+    if (!images?.length) {
+      setSelectedIndex(0);
       return;
     }
+    setSelectedIndex((prev) => Math.min(prev, images.length - 1));
+  }, [images]);
 
+  const hasImages = Boolean(images && images.length > 0);
+
+  const selectedImage = useMemo(() => {
+    if (!hasImages) return "";
+    return images[selectedIndex] ?? images[0] ?? "";
+  }, [hasImages, images, selectedIndex]);
+
+  const surfaceClass =
+    bgMode === "dark" ? "resultSurface resultSurfaceDark" : "resultSurface resultSurfaceGrey";
+
+  const handleDownload = async () => {
+    if (!selectedImage) return;
     try {
-      setLoading(true);
+      const res = await fetch(selectedImage);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
 
-      const fd = new FormData();
-      fd.append("hardware", hardware);
-      fd.append("material", material);
-      if (sole) fd.append("sole", sole);
-      if (inspiration) fd.append("inspiration", inspiration);
-      fd.append("prompt", prompt || "");
-      fd.append("variations", String(variations));
-      fd.append("bg", bgMode);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `design-${selectedIndex + 1}.png`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
 
-      const res = await fetch("/api/generate", {
-        method: "POST",
-        body: fd,
-      });
-
-      if (!res.ok) {
-        const txt = await res.text().catch(() => "");
-        throw new Error(txt || `Generate failed (${res.status})`);
-      }
-
-      const data = await res.json();
-
-      // Expecting: { images: string[] }
-      const nextImages: string[] = Array.isArray(data?.images) ? data.images : [];
-
-      setImages(nextImages);
-      setSelectedIndex(0);
-    } catch (e: any) {
-      console.error(e);
-      alert(e?.message || "Generate failed");
-    } finally {
-      setLoading(false);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      // fallback: open in new tab
+      window.open(selectedImage, "_blank", "noopener,noreferrer");
     }
-  }
+  };
 
   return (
-    <div className="appShell">
-      {/* Header */}
-      <div className="topBar">
-        <div className="brandBlock">
-          <h1 className="brandTitle">AI SHOE DESIGNER</h1>
-          <p className="brandSub">
-            Upload design references and generate footwear concepts instantly.
-          </p >
-        </div>
+    <section className="panelCard">
+      <div className="panelHeader">
+        <div className="panelTitle">{title}</div>
 
-        <div className="controlsRow">
-          <button className="btn" onClick={resetAll} disabled={loading}>
-            Reset
+        <div className="panelActions">
+          <button
+            type="button"
+            className={`pillBtn ${bgMode === "dark" ? "pillActive" : ""}`}
+            onClick={() => setBgMode("dark")}
+          >
+            DARK
           </button>
-
-          <button className="btnPrimary" onClick={handleGenerate} disabled={!canGenerate}>
-            {loading ? "Generating..." : "Generate Designs"}
+          <button
+            type="button"
+            className={`pillBtn ${bgMode === "grey" ? "pillActive" : ""}`}
+            onClick={() => setBgMode("grey")}
+          >
+            GREY
           </button>
-
-          <div className="controlGroup">
-            <div className="controlLabel">DESIGN VARIATIONS</div>
-            <select
-              className="select"
-              value={variations}
-              onChange={(e) => setVariations(Number(e.target.value))}
-              disabled={loading}
-            >
-              <option value={1}>1</option>
-              <option value={2}>2</option>
-              <option value={3}>3</option>
-              <option value={4}>4</option>
-            </select>
-          </div>
+          <button
+            type="button"
+            className="pillBtn"
+            onClick={handleDownload}
+            disabled={!hasImages || loading}
+            aria-disabled={!hasImages || loading}
+          >
+            DOWNLOAD
+          </button>
         </div>
       </div>
 
-      {/* ✅ Panels (kept aligned) */}
-      <div className="panelsRow">
-        {/* LEFT */}
-        <div className="panel">
-          <div className="panelHeader">
-            <div className="panelTitle">Design inputs</div>
-          </div>
-
-          <div className="panelBody">
-            <UploadBox label="Hardware" required file={hardware} onChange={setHardware} />
-            <UploadBox label="Material" required file={material} onChange={setMaterial} />
-            <UploadBox label="Sole" file={sole} onChange={setSole} />
-            <UploadBox label="Inspiration" file={inspiration} onChange={setInspiration} />
-
-            <div className="notesBlock">
-              <div className="notesTitle">DESIGN NOTES</div>
-              <div className="notesHint">
-                Example: “Use the buckle from image 1. Use only the material texture from image 2.
-                Keep the sole shape from image 3. Make a ladies ballerina. Realistic photoshoot.”
+      <div className="panelBody">
+        <div className={surfaceClass}>
+          {loading ? (
+            <div className="resultEmpty">
+              <div className="resultHeadline">Generating…</div>
+              <div className="resultSub">Hold tight. Variations will load below.</div>
+            </div>
+          ) : hasImages ? (
+            <div className="resultStage">
+              <img
+                src={selectedImage}
+                alt={`Generated design ${selectedIndex + 1}`}
+                className="resultImage"
+                draggable={false}
+              />
+            </div>
+          ) : (
+            <div className="resultEmpty">
+              <div className="resultHeadline">Your design preview will appear here</div>
+              <div className="resultSub">
+                Upload references on the left, then click Generate to explore variations.
               </div>
-
-              <PromptWithMic value={prompt} onChange={setPrompt} />
+              <div className="resultTip">Tip: Generate 2–4 variations to compare design directions.</div>
             </div>
-          </div>
+          )}
         </div>
 
-        {/* RIGHT */}
-        <div className="panel">
-          <div className="panelHeader panelHeaderSplit">
-            <div className="panelTitle">RESULT</div>
-
-            <div className="pillRow">
+        {/* Variations strip */}
+        <div className="resultStrip">
+          {hasImages &&
+            images.map((src, i) => (
               <button
-                className={`pill ${bgMode === "dark" ? "pillActive" : ""}`}
-                onClick={() => setBgMode("dark")}
-                disabled={loading}
+                key={src + i}
                 type="button"
+                className={`thumb ${i === selectedIndex ? "thumbActive" : ""}`}
+                onClick={() => setSelectedIndex(i)}
+                title={`Variation ${i + 1}`}
               >
-                DARK
+                < img src={src} alt={`Variation ${i + 1}`} className="thumbImg" draggable={false} />
+                <span className="thumbLabel">{i + 1}</span>
               </button>
-              <button
-                className={`pill ${bgMode === "grey" ? "pillActive" : ""}`}
-                onClick={() => setBgMode("grey")}
-                disabled={loading}
-                type="button"
-              >
-                GREY
-              </button>
-            </div>
-          </div>
-
-          <div className="panelBody">
-            <ResultPanel
-              title="RESULT"
-              images={images}
-              loading={loading}
-            />
-          </div>
+            ))}
         </div>
       </div>
-    </div>
+    </section>
   );
 }
