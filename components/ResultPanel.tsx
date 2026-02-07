@@ -1,134 +1,185 @@
-// components/ResultPanel.tsx
-"use client";
+'use client';
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from 'react';
 
 type Props = {
   title: string;
-  images: string[];
   loading: boolean;
+  images: string[];
 };
 
-export default function ResultPanel({ title, images, loading }: Props) {
-  const [bgMode, setBgMode] = useState<"dark" | "grey">("dark");
-  const [selectedIndex, setSelectedIndex] = useState(0);
+export default function ResultPanel({ title, loading, images }: Props) {
+  const [active, setActive] = useState(0);
 
-  // Keep selection valid when images change
   useEffect(() => {
-    if (!images?.length) {
-      setSelectedIndex(0);
-      return;
-    }
-    setSelectedIndex((prev) => Math.min(prev, images.length - 1));
-  }, [images]);
+    if (images.length > 0) setActive(0);
+  }, [images.length]);
 
-  const hasImages = Boolean(images && images.length > 0);
+  const hasImages = images && images.length > 0;
 
-  const selectedImage = useMemo(() => {
-    if (!hasImages) return "";
-    return images[selectedIndex] ?? images[0] ?? "";
-  }, [hasImages, images, selectedIndex]);
-
-  const surfaceClass =
-    bgMode === "dark" ? "resultSurface resultSurfaceDark" : "resultSurface resultSurfaceGrey";
-
-  const handleDownload = async () => {
-    if (!selectedImage) return;
-    try {
-      const res = await fetch(selectedImage);
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `design-${selectedIndex + 1}.png`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-
-      URL.revokeObjectURL(url);
-    } catch (e) {
-      // fallback: open in new tab
-      window.open(selectedImage, "_blank", "noopener,noreferrer");
-    }
-  };
+  const activeSrc = useMemo(() => {
+    if (!hasImages) return '';
+    return images[Math.min(active, images.length - 1)];
+  }, [active, images, hasImages]);
 
   return (
-    <section className="panelCard">
-      <div className="panelHeader">
-        <div className="panelTitle">{title}</div>
-
-        <div className="panelActions">
-          <button
-            type="button"
-            className={`pillBtn ${bgMode === "dark" ? "pillActive" : ""}`}
-            onClick={() => setBgMode("dark")}
-          >
-            DARK
-          </button>
-          <button
-            type="button"
-            className={`pillBtn ${bgMode === "grey" ? "pillActive" : ""}`}
-            onClick={() => setBgMode("grey")}
-          >
-            GREY
-          </button>
-          <button
-            type="button"
-            className="pillBtn"
-            onClick={handleDownload}
-            disabled={!hasImages || loading}
-            aria-disabled={!hasImages || loading}
-          >
-            DOWNLOAD
-          </button>
-        </div>
+    <div className="rp">
+      <div className="rpHead">
+        <div className="rpTitle">{title}</div>
       </div>
 
-      <div className="panelBody">
-        <div className={surfaceClass}>
-          {loading ? (
-            <div className="resultEmpty">
-              <div className="resultHeadline">Generating…</div>
-              <div className="resultSub">Hold tight. Variations will load below.</div>
+      <div className="rpStage">
+        {loading ? (
+          <div className="rpCenter">
+            <div className="rpBig">Generating…</div>
+            <div className="rpSmall">Variations will load below.</div>
+          </div>
+        ) : !hasImages ? (
+          <div className="rpCenter">
+            <div className="rpBig">Your design preview will appear here</div>
+            <div className="rpSmall">
+              Upload references on the left, then click Generate to explore
+              variations.
             </div>
-          ) : hasImages ? (
-            <div className="resultStage">
-              <img
-                src={selectedImage}
-                alt={`Generated design ${selectedIndex + 1}`}
-                className="resultImage"
-                draggable={false}
-              />
+            <div className="rpTip">
+              Tip: Generate 2–4 variations to compare design directions.
             </div>
-          ) : (
-            <div className="resultEmpty">
-              <div className="resultHeadline">Your design preview will appear here</div>
-              <div className="resultSub">
-                Upload references on the left, then click Generate to explore variations.
-              </div>
-              <div className="resultTip">Tip: Generate 2–4 variations to compare design directions.</div>
-            </div>
-          )}
-        </div>
-
-        {/* Variations strip */}
-        <div className="resultStrip">
-          {hasImages &&
-            images.map((src, i) => (
-              <button
-                key={src + i}
-                type="button"
-                className={`thumb ${i === selectedIndex ? "thumbActive" : ""}`}
-                onClick={() => setSelectedIndex(i)}
-                title={`Variation ${i + 1}`}
-              >
-                < img src={src} alt={`Variation ${i + 1}`} className="thumbImg" draggable={false} />
-                <span className="thumbLabel">{i + 1}</span>
-              </button>
-            ))}
-        </div>
+          </div>
+        ) : (
+          <div className="rpPreviewWrap">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            < img className="rpPreview" src={activeSrc} alt="Result preview" />
+          </div>
+        )}
       </div>
-    </section>
+
+      {hasImages ? (
+        <div className="rpThumbRow">
+          {images.map((src, i) => (
+            <button
+              key={`${src}-${i}`}
+              type="button"
+              className={`rpThumb ${i === active ? 'active' : ''}`}
+              onClick={() => setActive(i)}
+              title={`Variation ${i + 1}`}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              < img src={src} alt={`Variation ${i + 1}`} />
+            </button>
+          ))}
+        </div>
+      ) : null}
+
+      <style jsx>{`
+        .rp {
+          width: 100%;
+        }
+
+        .rpHead {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 12px;
+        }
+
+        .rpTitle {
+          font-size: 15px;
+          font-weight: 800;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+          opacity: 0.95;
+        }
+
+        .rpStage {
+          border-radius: 18px;
+          min-height: 420px;
+          border: 1px solid rgba(255, 255, 255, 0.14);
+          background: rgba(0, 0, 0, 0.18);
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+          padding: 18px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .rpCenter {
+          max-width: 520px;
+          text-align: center;
+        }
+
+        .rpBig {
+          font-size: 16px;
+          font-weight: 800;
+          opacity: 0.95;
+        }
+
+        .rpSmall {
+          margin-top: 8px;
+          font-size: 13px;
+          opacity: 0.75;
+          line-height: 1.4;
+        }
+
+        .rpTip {
+          margin-top: 14px;
+          font-size: 12px;
+          opacity: 0.7;
+        }
+
+        .rpPreviewWrap {
+          width: 100%;
+          display: flex;
+          justify-content: center;
+        }
+
+        .rpPreview {
+          max-width: 100%;
+          max-height: 560px;
+          border-radius: 16px;
+          border: 1px solid rgba(255, 255, 255, 0.14);
+          box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+          background: rgba(255, 255, 255, 0.03);
+        }
+
+        .rpThumbRow {
+          display: flex;
+          gap: 10px;
+          margin-top: 14px;
+          overflow-x: auto;
+          padding-bottom: 2px;
+        }
+
+        .rpThumb {
+          width: 78px;
+          height: 54px;
+          border-radius: 12px;
+          overflow: hidden;
+          border: 1px solid rgba(255, 255, 255, 0.14);
+          background: rgba(0, 0, 0, 0.18);
+          cursor: pointer;
+          padding: 0;
+          flex: 0 0 auto;
+          transition: transform 140ms ease, border-color 140ms ease,
+            box-shadow 140ms ease;
+        }
+
+        .rpThumb img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+        }
+
+        .rpThumb:hover {
+          transform: translateY(-1px);
+          border-color: rgba(255, 255, 255, 0.22);
+        }
+
+        .rpThumb.active {
+          border-color: rgba(255, 255, 255, 0.4);
+          box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.12);
+        }
+      `}</style>
+    </div>
   );
 }
