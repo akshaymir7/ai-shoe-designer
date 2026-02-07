@@ -5,27 +5,27 @@ import UploadBox from "../components/UploadBox";
 import ResultPanel from "../components/ResultPanel";
 import PromptWithMic from "../components/PromptWithMic";
 
-type GenerateResponse =
-  | { ok: true; images: string[] }
-  | { ok: false; error?: string };
+type BgMode = "dark" | "grey";
 
 export default function Page() {
-  // Files
+  // REQUIRED
   const [hardware, setHardware] = useState<File | null>(null);
   const [material, setMaterial] = useState<File | null>(null);
+
+  // OPTIONAL
   const [sole, setSole] = useState<File | null>(null);
   const [inspiration, setInspiration] = useState<File | null>(null);
 
-  // Prompt + options
   const [prompt, setPrompt] = useState<string>("");
-  const [variations, setVariations] = useState<number>(4);
 
-  // Results
-  const [results, setResults] = useState<string[]>([]);
+  const [variations, setVariations] = useState<number>(4);
+  const [bgMode, setBgMode] = useState<BgMode>("dark");
+
   const [loading, setLoading] = useState<boolean>(false);
+  const [images, setImages] = useState<string[]>([]);
+  const [selectedIndex, setSelectedIndex] = useState<number>(0);
 
   const canGenerate = useMemo(() => {
-    // Hardware + Material required (matches your current UX)
     return Boolean(hardware && material) && !loading;
   }, [hardware, material, loading]);
 
@@ -35,13 +35,13 @@ export default function Page() {
     setSole(null);
     setInspiration(null);
     setPrompt("");
-    setResults([]);
-    setLoading(false);
-    setVariations(4);
+    setImages([]);
+    setSelectedIndex(0);
+    setBgMode("dark");
   }
 
   async function handleGenerate() {
-    // Keep this check EXACTLY — avoids the “I uploaded but it says required” bug
+    // ✅ FIX: validate hardware + material (NOT accessory)
     if (!hardware || !material) {
       alert("Hardware + Material are required.");
       return;
@@ -49,153 +49,140 @@ export default function Page() {
 
     try {
       setLoading(true);
-      setResults([]);
 
-      const form = new FormData();
-      form.append("hardware", hardware);
-      form.append("material", material);
-
-      if (sole) form.append("sole", sole);
-      if (inspiration) form.append("inspiration", inspiration);
-
-      if (prompt.trim()) form.append("prompt", prompt.trim());
-      form.append("variations", String(variations));
+      const fd = new FormData();
+      fd.append("hardware", hardware);
+      fd.append("material", material);
+      if (sole) fd.append("sole", sole);
+      if (inspiration) fd.append("inspiration", inspiration);
+      fd.append("prompt", prompt || "");
+      fd.append("variations", String(variations));
+      fd.append("bg", bgMode);
 
       const res = await fetch("/api/generate", {
         method: "POST",
-        body: form,
+        body: fd,
       });
 
-      const data = (await res.json()) as GenerateResponse;
-
-      if (!res.ok || !data.ok) {
-        const msg =
-          (data as any)?.error ||
-          `Generate failed (${res.status})`;
-        alert(msg);
-        return;
+      if (!res.ok) {
+        const txt = await res.text().catch(() => "");
+        throw new Error(txt || `Generate failed (${res.status})`);
       }
 
-      setResults(data.images || []);
-    } catch (err) {
-      console.error(err);
-      alert("Generate failed");
+      const data = await res.json();
+
+      // Expecting: { images: string[] }
+      const nextImages: string[] = Array.isArray(data?.images) ? data.images : [];
+
+      setImages(nextImages);
+      setSelectedIndex(0);
+    } catch (e: any) {
+      console.error(e);
+      alert(e?.message || "Generate failed");
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <main className="appShell">
+    <div className="appShell">
       {/* Header */}
-      <header className="pageHeader">
-        <h1 className="appTitle">AI SHOE DESIGNER</h1>
-        <p className="appSubtitle">
-          Upload design references and generate footwear concepts instantly.
-          Hardware + Material are required.
-        </p >
-      </header>
+      <div className="topBar">
+        <div className="brandBlock">
+          <h1 className="brandTitle">AI SHOE DESIGNER</h1>
+          <p className="brandSub">
+            Upload design references and generate footwear concepts instantly.
+          </p >
+        </div>
 
-      {/* Top control bar (Fix #1: Variations lives here) */}
-      <section className="topControls">
-        <div className="controlsLeft">
-          <button className="btnSecondary" onClick={resetAll} disabled={loading}>
+        <div className="controlsRow">
+          <button className="btn" onClick={resetAll} disabled={loading}>
             Reset
           </button>
 
-          <button
-            className="btnPrimary"
-            onClick={handleGenerate}
-            disabled={!canGenerate}
-            aria-disabled={!canGenerate}
-            title={!hardware || !material ? "Upload Hardware + Material to generate" : ""}
-          >
-            {loading ? "Generating…" : "Generate"}
+          <button className="btnPrimary" onClick={handleGenerate} disabled={!canGenerate}>
+            {loading ? "Generating..." : "Generate Designs"}
           </button>
-        </div>
 
-        <div className="controlsRight">
-          <div className="variationBlock">
-            <div className="variationLabel">DESIGN VARIATIONS</div>
+          <div className="controlGroup">
+            <div className="controlLabel">DESIGN VARIATIONS</div>
             <select
-              className="variationSelect"
+              className="select"
               value={variations}
               onChange={(e) => setVariations(Number(e.target.value))}
               disabled={loading}
             >
+              <option value={1}>1</option>
               <option value={2}>2</option>
               <option value={3}>3</option>
               <option value={4}>4</option>
             </select>
           </div>
         </div>
-      </section>
+      </div>
 
-      {/* Two-column panels */}
-      <section className="panelGrid">
-        {/* LEFT: Design inputs */}
-        <div className="panelCard">
-          <div className="panelHeaderStrip">
-            <div className="panelHeaderTitle">Design inputs</div>
+      {/* ✅ Panels (kept aligned) */}
+      <div className="panelsRow">
+        {/* LEFT */}
+        <div className="panel">
+          <div className="panelHeader">
+            <div className="panelTitle">Design inputs</div>
           </div>
 
           <div className="panelBody">
-            <UploadBox
-              label="Hardware"
-              file={hardware}
-              onChange={setHardware}
-              required
-              helper="Upload buckles, trims, or accessories"
-            />
-
-            <UploadBox
-              label="Material"
-              file={material}
-              onChange={setMaterial}
-              required
-              helper="Upload leather, fabric, or surface textures"
-            />
-
-            <UploadBox
-              label="Sole"
-              file={sole}
-              onChange={setSole}
-              helper="Upload outsole or bottom references"
-            />
-
-            <UploadBox
-              label="Inspiration"
-              file={inspiration}
-              onChange={setInspiration}
-              helper="Optional references for mood, silhouette, or styling"
-            />
+            <UploadBox label="Hardware" required file={hardware} onChange={setHardware} />
+            <UploadBox label="Material" required file={material} onChange={setMaterial} />
+            <UploadBox label="Sole" file={sole} onChange={setSole} />
+            <UploadBox label="Inspiration" file={inspiration} onChange={setInspiration} />
 
             <div className="notesBlock">
               <div className="notesTitle">DESIGN NOTES</div>
-
-              {/* If you prefer PromptWithMic, keep it; otherwise replace with a textarea */}
-              <PromptWithMic value={prompt} onChange={setPrompt} />
-
-              <div className="notesExample">
+              <div className="notesHint">
                 Example: “Use the buckle from image 1. Use only the material texture from image 2.
                 Keep the sole shape from image 3. Make a ladies ballerina. Realistic photoshoot.”
               </div>
+
+              <PromptWithMic value={prompt} onChange={setPrompt} />
             </div>
           </div>
         </div>
 
-        {/* RIGHT: Result (Fix #2: same header strip styling) */}
-        <div className="panelCard">
-          <div className="panelHeaderStrip">
-            <div className="panelHeaderTitle">RESULT</div>
+        {/* RIGHT */}
+        <div className="panel">
+          <div className="panelHeader panelHeaderSplit">
+            <div className="panelTitle">RESULT</div>
+
+            <div className="pillRow">
+              <button
+                className={`pill ${bgMode === "dark" ? "pillActive" : ""}`}
+                onClick={() => setBgMode("dark")}
+                disabled={loading}
+                type="button"
+              >
+                DARK
+              </button>
+              <button
+                className={`pill ${bgMode === "grey" ? "pillActive" : ""}`}
+                onClick={() => setBgMode("grey")}
+                disabled={loading}
+                type="button"
+              >
+                GREY
+              </button>
+            </div>
           </div>
 
           <div className="panelBody">
-            {/* Keep props minimal so it matches your current ResultPanel */}
-            <ResultPanel title="RESULT"images={results} loading={loading} />
+            <ResultPanel
+              title="RESULT"
+              images={images}
+              loading={loading}
+              selectedIndex={selectedIndex}
+              onSelect={setSelectedIndex}
+            />
           </div>
         </div>
-      </section>
-    </main>
+      </div>
+    </div>
   );
 }
