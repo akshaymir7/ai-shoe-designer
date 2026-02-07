@@ -44,7 +44,7 @@ export default function Page() {
     try {
       // IMPORTANT: send multipart/form-data via FormData (do NOT set Content-Type header)
       const fd = new FormData();
-      fd.append('hardware', hardware);
+      fd.append('accessory', hardware);
       fd.append('material', material);
 
       if (sole) fd.append('sole', sole);
