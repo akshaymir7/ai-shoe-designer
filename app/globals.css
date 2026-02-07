@@ -2647,3 +2647,19 @@ button {
 .panelBody {
   padding: 14px 16px 16px;
 }
+.contentGrid{
+  display:grid;
+  grid-template-columns: minmax(0,1fr) minmax(0,1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+@media (max-width: 980px){
+  .contentGrid{
+    grid-template-columns: 1fr;
+  }
+}
+
+.panel{
+  min-width: 0; /* prevents overflow pushing the other panel away */
+}

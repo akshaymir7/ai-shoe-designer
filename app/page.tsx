@@ -4,202 +4,246 @@ import React, { useMemo, useState } from "react";
 import UploadBox from "@/components/UploadBox";
 import ResultPanel from "@/components/ResultPanel";
 
+type BgMode = "dark" | "grey";
+
 export default function Page() {
-  // Keep state names aligned with backend expectations
-  const [accessory, setAccessory] = useState<File | null>(null); // UI label: Hardware
+  // Inputs
+  const [hardware, setHardware] = useState<File | null>(null);
   const [material, setMaterial] = useState<File | null>(null);
   const [sole, setSole] = useState<File | null>(null);
   const [inspiration, setInspiration] = useState<File | null>(null);
+  const [prompt, setPrompt] = useState<string>("");
 
-  const [prompt, setPrompt] = useState("");
-  const [variations, setVariations] = useState<number>(4);
-
+  // UI
+  const [variations, setVariations] = useState<number>(2); // ✅ includes 1 in dropdown
+  const [loading, setLoading] = useState<boolean>(false);
   const [images, setImages] = useState<string[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string>("");
+
+  // Result panel selection + bg
+  const [bgMode, setBgMode] = useState<BgMode>("dark");
+  const [selectedIndex, setSelectedIndex] = useState<number>(0);
 
   const canGenerate = useMemo(() => {
-    return Boolean(accessory && material) && !loading;
-  }, [accessory, material, loading]);
+    return Boolean(hardware && material) && !loading;
+  }, [hardware, material, loading]);
 
   function resetAll() {
-    setAccessory(null);
+    setHardware(null);
     setMaterial(null);
     setSole(null);
     setInspiration(null);
     setPrompt("");
     setImages([]);
-    setLoading(false);
+    setSelectedIndex(0);
+    setError("");
+    setBgMode("dark");
   }
 
   async function handleGenerate() {
-    // Frontend guard
-    if (!accessory || !material) {
-      alert("Hardware + Material are required.");
+    setError("");
+
+    if (!hardware || !material) {
+      setError("Hardware + Material are required.");
       return;
     }
 
     try {
       setLoading(true);
       setImages([]);
+      setSelectedIndex(0);
 
       const form = new FormData();
 
-      // IMPORTANT: backend likely expects these exact keys
-      form.append("accessory", accessory);
+      // Files (use multiple common names so backend matches regardless)
+      form.append("hardware", hardware);
+      form.append("accessory", hardware); // backward compatible
       form.append("material", material);
 
       if (sole) form.append("sole", sole);
       if (inspiration) form.append("inspiration", inspiration);
 
-      if (prompt.trim()) form.append("prompt", prompt.trim());
-      form.append("variations", String(variations));
+      // Prompt
+      form.append("prompt", prompt ?? "");
+
+      // Variations: send multiple keys so API won't default to 4
+      const v = String(variations);
+      form.append("variations", v);
+      form.append("n", v);
+      form.append("num_images", v);
+      form.append("numOutputs", v);
+      form.append("count", v);
+
+      // Optional: send bg mode if your API uses it (safe)
+      form.append("bg", bgMode);
 
       const res = await fetch("/api/generate", {
         method: "POST",
         body: form,
       });
 
+      // Read response safely
       const data = await res.json().catch(() => null);
 
       if (!res.ok) {
         const msg =
-          data?.error ||
-          data?.message ||
-          "Generate failed. Please try again.";
-        alert(msg);
+          (data && (data.error || data.message)) ||
+          `Generate failed (HTTP ${res.status}).`;
+        setError(String(msg));
         return;
       }
 
+      // Accept common shapes:
+      // { images: string[] } OR { output: string[] } OR { data: string[] }
       const out: string[] =
-        data?.images || data?.urls || data?.result || data?.data || [];
+        (data?.images as string[]) ||
+        (data?.output as string[]) ||
+        (data?.data as string[]) ||
+        [];
 
       if (!Array.isArray(out) || out.length === 0) {
-        alert("No images returned. Try again with a clearer prompt.");
+        setError("No images returned. Try again.");
         return;
       }
 
       setImages(out);
+      setSelectedIndex(0);
     } catch (e: any) {
-      alert(e?.message || "Something went wrong while generating.");
+      setError(e?.message || "Something went wrong while generating.");
     } finally {
       setLoading(false);
     }
   }
 
+  async function handleDownload() {
+    setError("");
+    if (!images?.length) return;
+
+    const url = images[selectedIndex] || images[0];
+    if (!url) return;
+
+    try {
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `ai-shoe-design-${selectedIndex + 1}.png`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch {
+      setError("Download failed. Try right-click → Save image as.");
+    }
+  }
+
   return (
-    <main className="page">
-      <header className="hero">
-        <div className="heroInner">
-          <h1 className="heroTitle">AI SHOE DESIGNER</h1>
-          <p className="heroSub">
+    <main className="pageWrap">
+      <header className="topHeader">
+        <div className="brandBlock">
+          <div className="brandTitle">AI SHOE DESIGNER</div>
+          <div className="brandSub">
             Upload design references and generate footwear concepts instantly.
-          </p >
+            <span className="brandReq"> Hardware + Material are required.</span>
+          </div>
+        </div>
 
-          <div className="topControls">
-            <button className="btn" type="button" onClick={resetAll} disabled={loading}>
-              Reset
-            </button>
+        <div className="topActions">
+          <button className="btn" onClick={resetAll} disabled={loading}>
+            Reset
+          </button>
 
-            <button
-              className="btn btnPrimary"
-              type="button"
-              onClick={handleGenerate}
-              disabled={!canGenerate}
+          <button className="btnPrimary" onClick={handleGenerate} disabled={!canGenerate}>
+            {loading ? "Generating..." : "Generate Designs"}
+          </button>
+
+          <div className="variationBlock">
+            <div className="labelSmall">DESIGN VARIATIONS</div>
+            <select
+              className="select"
+              value={variations}
+              onChange={(e) => setVariations(Number(e.target.value))}
+              disabled={loading}
             >
-              {loading ? "Generating..." : "Generate"}
-            </button>
-
-            <div className="controlGroup">
-              <div className="controlLabel">DESIGN VARIATIONS</div>
-              <select
-                className="select"
-                value={variations}
-                onChange={(e) => setVariations(Number(e.target.value))}
-                disabled={loading}
-              >
-                <option value={2}>2</option>
-                <option value={3}>3</option>
-                <option value={4}>4</option>
-              </select>
-            </div>
+              <option value={1}>1</option>
+              <option value={2}>2</option>
+              <option value={3}>3</option>
+              <option value={4}>4</option>
+            </select>
           </div>
         </div>
       </header>
 
+      {error ? (
+        <div className="errorBanner" role="alert">
+          {error}
+        </div>
+      ) : null}
+
       <section className="contentGrid">
-        {/* LEFT PANEL */}
+        {/* LEFT */}
         <div className="panel">
-          <div className="panelHeader">
-            <div className="panelTitle">Design inputs</div>
-          </div>
+          <div className="panelHeader">Design inputs</div>
 
           <div className="panelBody">
             <UploadBox
               label="Hardware"
-              file={accessory}
-              onChange={setAccessory}
               required
+              file={hardware}
+              onChange={setHardware}
+              helper="Upload buckles, trims, or accessories"
             />
 
             <UploadBox
               label="Material"
+              required
               file={material}
               onChange={setMaterial}
-              required
+              helper="Upload leather, fabric, or surface textures"
             />
 
-            <UploadBox label="Sole" file={sole} onChange={setSole} />
+            <UploadBox
+              label="Sole"
+              file={sole}
+              onChange={setSole}
+              helper="Upload outsole or bottom references"
+            />
 
             <UploadBox
               label="Inspiration"
               file={inspiration}
               onChange={setInspiration}
+              helper="Optional references for mood, silhouette, or styling"
             />
 
-            {/* DESIGN NOTES – force good sizing/styling */}
-            <div style={{ marginTop: 14 }}>
-              <div style={{ fontWeight: 800, letterSpacing: 0.3, marginBottom: 6 }}>
-                Design notes
-              </div>
-
-              <div style={{ opacity: 0.85, fontSize: 13, lineHeight: 1.35, marginBottom: 10 }}>
-                Example: “Use the buckle from image 1. Use only the material texture from image 2.
-                Keep the sole shape from image 3. Make a ladies ballerina. Realistic photoshoot.”
+            <div className="notesBlock">
+              <div className="notesTitle">Design notes</div>
+              <div className="notesHint">
+                Example: “Use the buckle from image 1. Use only the material texture from image 2. Keep
+                the sole shape from image 3. Make a ladies ballerina. Realistic photoshoot.”
               </div>
 
               <textarea
+                className="textarea"
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 placeholder="Describe silhouette, vibe, and details…"
                 rows={5}
-                style={{
-                  width: "100%",
-                  minHeight: 120,
-                  resize: "vertical",
-                  padding: "12px 12px",
-                  borderRadius: 12,
-                  border: "1px solid rgba(255,255,255,0.14)",
-                  background: "rgba(0,0,0,0.28)",
-                  color: "rgba(255,255,255,0.92)",
-                  outline: "none",
-                  fontSize: 14,
-                  lineHeight: 1.4,
-                }}
+                disabled={loading}
               />
             </div>
           </div>
         </div>
 
-        {/* RIGHT PANEL */}
+        {/* RIGHT */}
         <div className="panel">
-          {/* Only one RESULT label (avoid double RESULT) */}
-          <div className="panelHeader">
-            <div className="panelTitle">RESULT</div>
-          </div>
-
-          <div className="panelBody">
-            <ResultPanel title="RESULT" images={images} loading={loading} />
-          </div>
+          <ResultPanel
+            title="RESULT"
+            images={images}
+            loading={loading}
+            selectedIndex={selectedIndex}
+            onSelect={setSelectedIndex}
+            bgMode={bgMode}
+            onBgChange={setBgMode}
+            onDownload={handleDownload}
+          />
         </div>
       </section>
     </main>
