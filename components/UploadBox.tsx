@@ -1,14 +1,14 @@
 "use client";
 
-import React, { useId, useRef } from "react";
+import React, { useId, useRef, useState } from "react";
 
-export type UploadBoxProps = {
-  label: string;                 // "Hardware" | "Material" | "Sole" | "Inspiration"
+type UploadBoxProps = {
+  label: string;
   file: File | null;
   onChange: (file: File | null) => void;
-  required?: boolean;            // default false
-  helperTop?: string;            // optional custom helper line
-  helperBottom?: string;         // optional custom helper line
+  required?: boolean;
+  helper?: string;
+  accept?: string;
 };
 
 export default function UploadBox({
@@ -16,114 +16,90 @@ export default function UploadBox({
   file,
   onChange,
   required = false,
-  helperTop,
-  helperBottom,
+  helper,
+  accept = "image/png,image/jpeg,image/webp",
 }: UploadBoxProps) {
-  const inputId = useId();
+  const id = useId();
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const [dragOver, setDragOver] = useState(false);
 
-  const pill = required ? "REQUIRED" : "OPTIONAL";
+  const openPicker = () => inputRef.current?.click();
 
-  // Default helper copy per box
-  const defaultHelpers: Record<string, { top: string; bottom: string }> = {
-    Hardware: {
-      top: "Upload buckles, trims, or accessories",
-      bottom: "PNG · JPG · WEBP · or drag & drop",
-    },
-    Material: {
-      top: "Upload leather, fabric, or surface textures",
-      bottom: "PNG · JPG · WEBP · or drag & drop",
-    },
-    Sole: {
-      top: "Upload outsole or bottom references",
-      bottom: "PNG · JPG · WEBP · or drag & drop",
-    },
-    Inspiration: {
-      top: "Optional references for mood, silhouette, or styling",
-      bottom: "PNG · JPG · WEBP · or drag & drop",
-    },
+  const handleFiles = (files: FileList | null) => {
+    const f = files?.[0] ?? null;
+    onChange(f);
   };
 
-  const h =
-    defaultHelpers[label] ?? {
-      top: "Click to upload or drag & drop",
-      bottom: "PNG · JPG · WEBP",
-    };
-
-  const topLine = helperTop ?? h.top;
-  const bottomLine = helperBottom ?? h.bottom;
-
-  function handleFile(f?: File | null) {
-    onChange(f ?? null);
-    // allow re-uploading the same file name
-    if (inputRef.current) inputRef.current.value = "";
-  }
-
-  function onDrop(e: React.DragEvent<HTMLDivElement>) {
-    e.preventDefault();
-    e.stopPropagation();
-    const f = e.dataTransfer.files?.[0];
-    if (f) handleFile(f);
-  }
-
   return (
-    <div
-      className="uploadBox"
-      onDragOver={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-      }}
-      onDrop={onDrop}
-      role="button"
-      tabIndex={0}
-      onClick={() => inputRef.current?.click()}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") inputRef.current?.click();
-      }}
-      aria-label={`${label} upload`}
-    >
-      <div className="uploadHeaderRow">
-        <div className="uploadTitle">{label}</div>
-        <div className="pill">{pill}</div>
+    <div className="uploadBox">
+      <div className="uploadBoxHeader">
+        <div className="uploadBoxTitleRow">
+          <div className="uploadBoxTitle">{label}</div>
+          <div className={`pill ${required ? "pillReq" : "pillOpt"}`}>
+            {required ? "REQUIRED" : "OPTIONAL"}
+          </div>
+        </div>
+
+        <div className="uploadBoxSub">
+          Click to upload or drag & drop
+        </div>
+
+        {helper ? <div className="uploadBoxHelper">{helper}</div> : null}
+
+        <div className="uploadBoxMeta">PNG • JPG • WEBP</div>
       </div>
 
-      {!file ? (
-        <>
-          <div className="uploadPrimary">Click to upload or drag & drop</div>
-          <div className="uploadSecondary">{topLine}</div>
-          <div className="uploadSecondary">{bottomLine}</div>
-        </>
-      ) : (
-        <div className="uploadSelectedRow">
-          <div className="uploadFileMeta">
+      {/* ALWAYS hidden, independent of global CSS */}
+      <input
+        ref={inputRef}
+        id={id}
+        type="file"
+        accept={accept}
+        onChange={(e) => handleFiles(e.target.files)}
+        style={{
+          position: "absolute",
+          width: 1,
+          height: 1,
+          padding: 0,
+          margin: -1,
+          overflow: "hidden",
+          clip: "rect(0,0,0,0)",
+          whiteSpace: "nowrap",
+          border: 0,
+        }}
+      />
+
+      <div
+        className={`uploadDrop ${dragOver ? "uploadDropActive" : ""}`}
+        role="button"
+        tabIndex={0}
+        onClick={openPicker}
+        onKeyDown={(e) => (e.key === "Enter" || e.key === " " ? openPicker() : null)}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragOver(true);
+        }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragOver(false);
+          handleFiles(e.dataTransfer.files);
+        }}
+      >
+        {file ? (
+          <div className="uploadFileRow">
             <div className="uploadFileName">{file.name}</div>
             <div className="uploadFileSize">
-              {Math.max(1, Math.round(file.size / 1024))} KB
+              {Math.round(file.size / 1024)} KB
             </div>
           </div>
-
-          <button
-            type="button"
-            className="btnSecondary"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              handleFile(null);
-            }}
-          >
-            Remove file
-          </button>
-        </div>
-      )}
-
-      <input
-        id={inputId}
-        ref={inputRef}
-        type="file"
-        accept="image/png,image/jpeg,image/webp,image/jpg"
-        className="srOnly"
-        onChange={(e) => handleFile(e.target.files?.[0] ?? null)}
-      />
+        ) : (
+          <div className="uploadEmpty">
+            <div className="uploadEmptyTitle">Drop an image here</div>
+            <div className="uploadEmptyHint">or click to browse</div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
