@@ -234,43 +234,92 @@ function cleanPrompt(input: string) {
       </section>
 
       {/* RIGHT PANEL */}
-      <section className="panel">
-        <ResultPanel
-          title="RESULT"
-          images={images}
-          loading={loading}
-          selectedIndex={selectedIndex}
-          onSelect={setSelectedIndex}
-          bgMode={bgMode}
-          onBgChange={setBgMode}
-          onDownload={downloadSelected}
-        />
+<section className="panel">
+  <ResultPanel
+    title="RESULT"
+    images={images}
+    loading={loading}
+    selectedIndex={selectedIndex}
+    onSelect={setSelectedIndex}
+    bgMode={bgMode}
+    onBgChange={setBgMode}
+    onDownload={downloadSelected}
+  />
 
-        {/* Prompt editor under result */}
-        <div className="promptCard">
-          <div className="promptCardTitle">Prompt</div>
-          <div className="promptCardSub">
-            Edit the prompt and regenerate using the same uploaded references.
-          </div>
+  {/* Prompt editor under result */}
+  <div className="promptCard">
+    <div className="promptCardTop">
+      <div className="promptCardTitle">Prompt</div>
+      <div className="promptCardSub">
+        Edit the prompt and regenerate using the same uploaded references.
+      </div>
+    </div>
 
-          <textarea
-            className="promptTextarea"
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            placeholder='Example: "Make a ladies ballerina. Use buckle from hardware..."'
-          />
+    <textarea
+      className="promptTextarea"
+      value={prompt}
+      onChange={(e) => setPrompt(e.target.value)}
+      placeholder='Example: "Make a ladies ballerina. Use buckle from hardware..."'
+      rows={4}
+    />
 
-          <div className="promptActions">
-            <button className="btnPrimary" onClick={generate} disabled={!canGenerate}>
-              Regenerate
-            </button>
-            <button className="btn" onClick={() => setPrompt("")} disabled={loading}>
-              Clear
-            </button>
-          </div>
-        </div>
-      </section>
-    </main>
+    <div className="promptActions">
+      <button
+        className="btnPrimary"
+        disabled={!canGenerate || !prompt.trim()}
+        onClick={generate}
+      >
+        Regenerate
+      </button>
+
+      <button
+        className="btnGhost"
+        disabled={loading}
+        onClick={() => setPrompt("")}
+      >
+        Clear
+      </button>
+    </div>
   </div>
-);
+</section>
+{/* Prompt editor under result */}
+<div className="promptCard">
+  <div className="promptCardTop">
+    <div className="promptCardTitle">Prompt</div>
+    <div className="promptCardSub">
+      Edit the prompt and regenerate using the same uploaded references.
+    </div>
+  </div>
+
+  <textarea
+    className="promptTextarea"
+    placeholder='Example: "Make a ladies ballerina. Use buckle from hardware. Use only the texture from material. Keep the sole shape. Realistic photoshoot."'
+    value={prompt}
+    onChange={(e) => setPrompt(e.target.value)}
+    rows={4}
+  />
+
+  <div className="promptActions">
+    <button
+      className="btnPrimary"
+      disabled={!canGenerate || !prompt.trim()}
+      onClick={generate}
+      title={!prompt.trim() ? "Type a prompt to regenerate" : "Regenerate"}
+    >
+      Regenerate
+    </button>
+
+    <button
+      className="btnGhost"
+      disabled={loading}
+      onClick={() => setPrompt("")}
+    >
+      Clear
+    </button>
+  </div>
+</div>
+       </main>
+    </div>
+  );
 }
+
