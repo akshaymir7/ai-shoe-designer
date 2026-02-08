@@ -154,122 +154,114 @@ export default function Page() {
     if (!url) return;
     window.open(url, "_blank", "noopener,noreferrer");
   }
+  function downloadSelected() {
+  if (!images.length) return;
 
-  return (
-    <div className="page">
-      {/* Header area (keep your existing header styles in globals.css) */}
-      <div className="hero">
-        <div className="heroTitle">AI SHOE DESIGNER</div>
-        <div className="heroSub">
+  const url = images[selectedIndex];
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `ai-shoe-design-${selectedIndex + 1}.png`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+ return (
+  <div className="page">
+    {/* Header */}
+    <header className="header">
+      <div>
+        <h1 className="title">AI SHOE DESIGNER</h1>
+        <p className="subtitle">
           Upload design references and generate footwear concepts instantly.
-        </div>
+        </p >
+      </div>
 
-        <div className="topActions">
-          <button className="btn" onClick={resetAll} disabled={loading}>
-            Reset
-          </button>
+      <div className="topActions">
+        <button className="btn" onClick={resetAll} disabled={loading}>
+          Reset
+        </button>
 
-          <button
-            className={`btn btnPrimary ${!canGenerate ? "btnDisabled" : ""}`}
-            onClick={generate}
-            disabled={!canGenerate}
+        <button className="btnPrimary" onClick={generate} disabled={!canGenerate}>
+          {loading ? "Generating..." : "Generate"}
+        </button>
+
+        <div className="variations">
+          <span className="variationsLabel">DESIGN VARIATIONS</span>
+          <select
+            className="select"
+            value={variations}
+            onChange={(e) => setVariations(Number(e.target.value))}
+            disabled={loading}
           >
-            {loading ? "Generating..." : "Generate"}
-          </button>
-
-          <div className="variationGroup">
-            <div className="variationLabel">DESIGN VARIATIONS</div>
-            <select
-              className="select"
-              value={variations}
-              onChange={(e) => setVariations(Number(e.target.value))}
-              disabled={loading}
-            >
-              <option value={1}>1</option>
-              <option value={2}>2</option>
-              <option value={3}>3</option>
-              <option value={4}>4</option>
-            </select>
-          </div>
-        </div>
-
-        {!!errorMsg && <div className="errorBanner">{errorMsg}</div>}
-      </div>
-
-      <div className="grid">
-        {/* LEFT panel */}
-        <div className="panel">
-          <div className="panelHeader">
-            <div className="panelTitle">DESIGN INPUTS</div>
-          </div>
-
-          <div className="panelBody">
-            <UploadBox label="Hardware" required file={hardware} onChange={setHardware} />
-            <UploadBox label="Material" required file={material} onChange={setMaterial} />
-            <UploadBox label="Sole" file={sole} onChange={setSole} />
-            <UploadBox label="Inspiration" file={inspiration} onChange={setInspiration} />
-          </div>
-        </div>
-
-        {/* RIGHT panel */}
-        <div className="panel">
-          <div className="panelHeader">
-            <div className="panelTitle">RESULT</div>
-          </div>
-
-          <div className="panelBody">
-            <ResultPanel
-              title=""
-              images={images}
-              loading={loading}
-              selectedIndex={selectedIndex}
-              onSelect={setSelectedIndex}
-              bgMode={bgMode}
-              onBgChange={setBgMode}
-              onDownload={onDownload}
-            />
-
-            {/* Prompt editor under result */}
-            <div className="panel" style={{ padding: 0 }}>
-              <div className="panelHeader">
-                <div className="panelTitle">PROMPT</div>
-                <div className="panelSubtitle">
-                  Edit the prompt and regenerate using the same uploaded references.
-                </div>
-              </div>
-
-              <div className="panelBody">
-                <PromptWithMic
-                  value={prompt}
-                  onChange={setPrompt}
-                  placeholder={`Example: "Make a ladies ballerina. Use buckle from hardware. Use only the texture from material. Keep the sole shape. Realistic photoshoot."`}
-                />
-
-                <div className="promptActions">
-                  <button
-                    className={`btn btnPrimary ${loading ? "btnDisabled" : ""}`}
-                    onClick={generate}
-                    disabled={loading}
-                  >
-                    Regenerate
-                  </button>
-                  <button className="btn" onClick={() => setPrompt("")} disabled={loading}>
-                    Clear
-                  </button>
-                  <button
-                    className="btn"
-                    onClick={() => setPrompt(lastPromptRef.current || "")}
-                    disabled={loading}
-                  >
-                    Reset to last prompt
-                  </button>
-                </div>
-              </div>
-            </div>
-
-          </div>
+            {[1, 2, 3, 4].map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
-    </div>
-  );
+
+      {!!errorMsg && <div className="errorBanner">{errorMsg}</div>}
+    </header>
+
+    {/* ✅ THIS is the important part: 2-column grid */}
+    <main className="mainGrid">
+      {/* LEFT PANEL */}
+      <section className="panel">
+        <div className="panelHeader">DESIGN INPUTS</div>
+        <div className="panelBody">
+          <UploadBox label="Hardware" required file={hardware} onChange={setHardware} />
+          <UploadBox label="Material" required file={material} onChange={setMaterial} />
+          <UploadBox label="Sole" file={sole} onChange={setSole} />
+          <UploadBox label="Inspiration" file={inspiration} onChange={setInspiration} />
+
+          <div className="promptBlock">
+            <div className="promptLabel">Design notes</div>
+            <PromptWithMic value={prompt} onChange={setPrompt} />
+          </div>
+        </div>
+      </section>
+
+      {/* RIGHT PANEL */}
+      <section className="panel">
+        <ResultPanel
+          title="RESULT"
+          images={images}
+          loading={loading}
+          selectedIndex={selectedIndex}
+          onSelect={setSelectedIndex}
+          bgMode={bgMode}
+          onBgChange={setBgMode}
+          onDownload={downloadSelected}
+        />
+
+        {/* Prompt editor under result */}
+        <div className="promptCard">
+          <div className="promptCardTitle">Prompt</div>
+          <div className="promptCardSub">
+            Edit the prompt and regenerate using the same uploaded references.
+          </div>
+
+          <textarea
+            className="promptTextarea"
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            placeholder='Example: "Make a ladies ballerina. Use buckle from hardware..."'
+          />
+
+          <div className="promptActions">
+            <button className="btnPrimary" onClick={generate} disabled={!canGenerate}>
+              Regenerate
+            </button>
+            <button className="btn" onClick={() => setPrompt("")} disabled={loading}>
+              Clear
+            </button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+);
 }
