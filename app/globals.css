@@ -349,3 +349,144 @@ button {
   gap: 10px;
   margin-top: 14px;
 }
+/* ------------------------------
+   Responsive (Mobile/Tablet)
+-------------------------------- */
+
+/* Make images/video-like areas behave */
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Prevent horizontal scroll */
+html, body {
+  overflow-x: hidden;
+}
+
+/* Tablet + below */
+@media (max-width: 1024px) {
+  /* If your main layout is a 2-col grid/flex, force single column */
+  .layout,
+  .mainGrid,
+  .twoCol,
+  .containerGrid {
+    display: block !important;
+  }
+
+  .leftPanel,
+  .rightPanel,
+  .panel {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* Spacing: tighter */
+  .pageWrap,
+  .container,
+  .shell {
+    padding: 14px !important;
+  }
+
+  /* Header / hero spacing */
+  .hero,
+  .header {
+    padding: 14px 14px 10px !important;
+  }
+
+  /* Top controls: wrap */
+  .topBar,
+  .controlsRow,
+  .toolbar {
+    flex-wrap: wrap !important;
+    gap: 10px !important;
+  }
+
+  /* Buttons + select become full width when needed */
+  .topBar button,
+  .controlsRow button,
+  .toolbar button,
+  .topBar select,
+  .controlsRow select,
+  .toolbar select {
+    height: 44px !important;
+  }
+
+  /* Result panel action pills wrap properly */
+  .resultTopBar {
+    flex-wrap: wrap !important;
+    gap: 10px !important;
+    justify-content: flex-start !important;
+  }
+
+  /* Result preview area: less padding, bigger usable space */
+  .resultPanel,
+  .resultCard,
+  .resultBody {
+    padding: 12px !important;
+  }
+
+  /* Thumbnail grid: 2 columns on mobile */
+  .thumbGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+  }
+
+  /* Upload boxes: reduce vertical dead space */
+  .uploadBox,
+  .dropZone {
+    padding: 12px !important;
+    min-height: 84px !important;
+  }
+}
+
+/* Phone */
+@media (max-width: 640px) {
+  /* Make title smaller so it doesn't dominate */
+  .heroTitle,
+  .title {
+    font-size: 28px !important;
+    letter-spacing: 0.5px !important;
+    line-height: 1.05 !important;
+  }
+
+  .heroSubtitle,
+  .subtitle {
+    font-size: 14px !important;
+    line-height: 1.3 !important;
+    opacity: 0.9 !important;
+  }
+
+  /* Panels: slightly smaller radius looks better on phone */
+  .panelShell,
+  .panel,
+  .resultPanel,
+  .card {
+    border-radius: 16px !important;
+  }
+
+  /* Inputs/labels tighter */
+  .label,
+  .sectionTitle {
+    font-size: 12px !important;
+  }
+
+  /* Thumbs: allow 1 column if screen is very narrow */
+  .thumbGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 360px) {
+  .thumbGrid {
+    grid-template-columns: 1fr !important;
+  }
+}
+@media (max-width: 1024px) {
+  .resultTopBar {
+    position: sticky;
+    top: 10px;
+    z-index: 5;
+    backdrop-filter: blur(10px);
+  }
+}
