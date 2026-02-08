@@ -1,11 +1,15 @@
 "use client";
 
-import { useState } from "react";
-import UploadBox from "@/components/UploadBox";
-import ResultPanel from "@/components/ResultPanel";
-import PromptWithMic from "@/components/PromptWithMic";
+import React, { useEffect, useMemo, useState } from "react";
+import UploadBox from "./components/UploadBox";
+import ResultPanel from "./components/ResultPanel";
+import PromptWithMic from "./components/PromptWithMic";
 
 type BgMode = "dark" | "grey";
+
+type ApiResponse =
+  | { ok: true; images: string[] }
+  | { ok: false; error: string };
 
 export default function Page() {
   const [hardware, setHardware] = useState<File | null>(null);
@@ -14,54 +18,29 @@ export default function Page() {
   const [inspiration, setInspiration] = useState<File | null>(null);
 
   const [prompt, setPrompt] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  const [images, setImages] = useState<string[]>([]);
   const [variations, setVariations] = useState<number>(2);
 
-  const [selectedIndex, setSelectedIndex] = useState<number>(0);
+  const [loading, setLoading] = useState(false);
+  const [images, setImages] = useState<string[]>([]);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+
   const [bgMode, setBgMode] = useState<BgMode>("dark");
+  const [errorMsg, setErrorMsg] = useState<string>("");
 
-  const canGenerate = Boolean(hardware && material) && !loading;
-
-  async function handleGenerate() {
-    if (!hardware || !material) {
-      alert("Hardware + Material are required.");
+  // Keep selection valid as images change
+  useEffect(() => {
+    if (!images?.length) {
+      setSelectedIndex(0);
       return;
     }
+    setSelectedIndex((prev) => Math.min(prev, images.length - 1));
+  }, [images]);
 
-    setLoading(true);
-    setImages([]);
-    setSelectedIndex(0);
+  const canGenerate = useMemo(() => {
+    return Boolean(hardware && material) && !loading;
+  }, [hardware, material, loading]);
 
-    try {
-      const formData = new FormData();
-      formData.append("hardware", hardware);
-      formData.append("material", material);
-      if (sole) formData.append("sole", sole);
-      if (inspiration) formData.append("inspiration", inspiration);
-      formData.append("prompt", prompt);
-      formData.append("variations", String(variations));
-
-      const res = await fetch("/api/generate", { method: "POST", body: formData });
-      const data = await res.json();
-
-      if (!res.ok || data?.ok === false) {
-        alert(data?.error || "Generation failed.");
-        return;
-      }
-
-      const out: string[] = Array.isArray(data.images) ? data.images : [];
-      setImages(out.slice(0, variations)); // hard-enforce count
-    } catch (e) {
-      console.error(e);
-      alert("Generation error. Check console.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  function handleReset() {
+  function resetAll() {
     setHardware(null);
     setMaterial(null);
     setSole(null);
@@ -69,78 +48,160 @@ export default function Page() {
     setPrompt("");
     setImages([]);
     setSelectedIndex(0);
-    setVariations(2);
+    setErrorMsg("");
+  }
+
+  async function handleGenerate() {
+    setErrorMsg("");
+
+    if (!hardware || !material) {
+      setErrorMsg("Hardware + Material are required.");
+      return;
+    }
+
+    // clamp variations to allowed set
+    const v = [1, 2, 4].includes(variations) ? variations : 2;
+
+    try {
+      setLoading(true);
+
+      const fd = new FormData();
+      fd.append("hardware", hardware);
+      fd.append("material", material);
+      if (sole) fd.append("sole", sole);
+      if (inspiration) fd.append("inspiration", inspiration);
+      if (prompt?.trim()) fd.append("prompt", prompt.trim());
+      fd.append("variations", String(v));
+
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        body: fd,
+      });
+
+      const data = (await res.json()) as ApiResponse;
+
+      if (!data.ok) {
+        setErrorMsg(data.error || "Generation failed.");
+        return;
+      }
+
+      setImages(Array.isArray(data.images) ? data.images : []);
+      setSelectedIndex(0);
+    } catch (e: any) {
+      setErrorMsg(e?.message || "Something went wrong.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   function handleDownload() {
+    if (!images?.length) return;
     const url = images[selectedIndex];
     if (!url) return;
+
     const a = document.createElement("a");
     a.href = url;
-    a.download = "design.png";
+    a.download = `design-${selectedIndex + 1}.png`;
+    document.body.appendChild(a);
     a.click();
+    a.remove();
   }
 
   return (
     <main
       style={{
         minHeight: "100vh",
-        padding: "22px 18px 28px",
-        boxSizing: "border-box",
+        padding: "28px 24px 40px",
+        color: "rgba(255,255,255,0.92)",
       }}
     >
-      {/* HEADER (always visible) */}
-      <header style={{ marginBottom: 16 }}>
+      {/* Header */}
+      <header style={{ marginBottom: 18, maxWidth: 1200 }}>
         <div
           style={{
-            display: "flex",
-            gap: 14,
-            alignItems: "baseline",
-            justifyContent: "space-between",
-            flexWrap: "wrap",
+            fontSize: 42,
+            fontWeight: 900,
+            letterSpacing: "0.08em",
+            textTransform: "uppercase",
+            lineHeight: 1.05,
           }}
         >
-          <div>
-            <h1 style={{ margin: 0, fontSize: 34, letterSpacing: 0.5 }}>
-              AI Shoe Designer
-            </h1>
-            <p style={{ margin: "6px 0 0", opacity: 0.85 }}>
-              Upload design references and generate footwear concepts instantly.
-            </p >
-          </div>
+          AI SHOE
+          <br />
+          DESIGNER
+        </div>
+
+        <div
+          style={{
+            marginTop: 10,
+            fontSize: 16,
+            fontWeight: 500,
+            letterSpacing: "0.02em",
+            opacity: 0.85,
+            maxWidth: 720,
+          }}
+        >
+          Upload design references and generate footwear concepts instantly.
         </div>
       </header>
 
-      {/* TOP CONTROLS */}
+      {/* Top actions */}
       <div
         style={{
           display: "flex",
-          gap: 12,
+          gap: 14,
           alignItems: "center",
           flexWrap: "wrap",
-          marginBottom: 14,
+          marginBottom: 18,
+          maxWidth: 1200,
         }}
       >
-        <button className="btn ghost" onClick={handleReset}>
+        <button className="btn ghost" onClick={resetAll} disabled={loading}>
           Reset
         </button>
 
-        <button className="btn primary" disabled={!canGenerate} onClick={handleGenerate}>
+        <button
+          className="btn primary"
+          onClick={handleGenerate}
+          disabled={!canGenerate}
+        >
           {loading ? "Generating…" : "Generate"}
         </button>
 
-        <div style={{ marginLeft: "auto", display: "flex", gap: 10, alignItems: "center" }}>
-          <span style={{ fontWeight: 700, letterSpacing: 0.4, opacity: 0.9 }}>
-            DESIGN VARIATIONS
-          </span>
+        {/* Variations belongs with Generate */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            marginLeft: 6,
+          }}
+        >
+          <div
+            style={{
+              fontSize: 12,
+              fontWeight: 800,
+              letterSpacing: "0.12em",
+              textTransform: "uppercase",
+              opacity: 0.8,
+            }}
+          >
+            Design Variations
+          </div>
+
           <select
             value={variations}
             onChange={(e) => setVariations(Number(e.target.value))}
             style={{
-              height: 34,
-              borderRadius: 10,
-              padding: "0 10px",
-              fontWeight: 700,
+              height: 36,
+              borderRadius: 12,
+              padding: "0 12px",
+              fontWeight: 800,
+              letterSpacing: "0.02em",
+              background: "rgba(255,255,255,0.08)",
+              color: "rgba(255,255,255,0.92)",
+              border: "1px solid rgba(255,255,255,0.18)",
+              outline: "none",
             }}
           >
             <option value={1}>1</option>
@@ -148,35 +209,114 @@ export default function Page() {
             <option value={4}>4</option>
           </select>
         </div>
+
+        {/* Inline error (no annoying alert/json popup) */}
+        {errorMsg ? (
+          <div
+            style={{
+              marginLeft: "auto",
+              padding: "10px 12px",
+              borderRadius: 12,
+              border: "1px solid rgba(255,255,255,0.18)",
+              background: "rgba(0,0,0,0.25)",
+              fontSize: 13,
+              fontWeight: 650,
+              letterSpacing: "0.02em",
+              color: "rgba(255,255,255,0.9)",
+              maxWidth: 520,
+            }}
+          >
+            {errorMsg}
+          </div>
+        ) : (
+          <div style={{ marginLeft: "auto" }} />
+        )}
       </div>
 
-      {/* 2-COLUMN LAYOUT (forces right panel to show) */}
+      {/* Main layout */}
       <section
         style={{
           display: "flex",
           gap: 18,
           alignItems: "stretch",
-          width: "100%",
+          maxWidth: 1200,
         }}
       >
-        {/* LEFT */}
-        <div style={{ flex: "0 0 44%", minWidth: 360 }}>
+        {/* Left panel */}
+        <div style={{ flex: "0 0 520px", minWidth: 360 }}>
           <div className="panel">
-            <div className="panelHeader">Design inputs</div>
+            <div
+              className="panelHeader"
+              style={{
+                fontSize: 14,
+                fontWeight: 900,
+                letterSpacing: "0.14em",
+                textTransform: "uppercase",
+              }}
+            >
+              Design inputs
+            </div>
+
             <div className="panelBody">
-              <UploadBox label="Hardware" required file={hardware} onChange={setHardware} />
-              <UploadBox label="Material" required file={material} onChange={setMaterial} />
+              <UploadBox
+                label="Hardware"
+                required
+                file={hardware}
+                onChange={setHardware}
+              />
+
+              <UploadBox
+                label="Material"
+                required
+                file={material}
+                onChange={setMaterial}
+              />
+
               <UploadBox label="Sole" file={sole} onChange={setSole} />
-              <UploadBox label="Inspiration" file={inspiration} onChange={setInspiration} />
-              <PromptWithMic value={prompt} onChange={setPrompt} />
+
+              <UploadBox
+                label="Inspiration"
+                file={inspiration}
+                onChange={setInspiration}
+              />
+
+              <div style={{ marginTop: 14 }}>
+                <div
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 850,
+                    letterSpacing: "0.12em",
+                    textTransform: "uppercase",
+                    opacity: 0.78,
+                    marginBottom: 8,
+                  }}
+                >
+                  Design notes
+                </div>
+
+                <div
+                  style={{
+                    fontSize: 13,
+                    opacity: 0.75,
+                    marginBottom: 8,
+                    lineHeight: 1.45,
+                  }}
+                >
+                  Example: “Use the buckle from image 1. Use only the material
+                  texture from image 2. Keep the sole shape from image 3. Make a
+                  ladies ballerina. Realistic photoshoot.”
+                </div>
+
+                <PromptWithMic value={prompt} onChange={setPrompt} />
+              </div>
             </div>
           </div>
         </div>
 
-        {/* RIGHT */}
-        <div style={{ flex: 1, minWidth: 420 }}>
+        {/* Right panel */}
+        <div style={{ flex: 1, minWidth: 360 }}>
           <ResultPanel
-            title="Result"
+            title="RESULT"
             images={images}
             loading={loading}
             selectedIndex={selectedIndex}
@@ -188,15 +328,15 @@ export default function Page() {
         </div>
       </section>
 
-      {/* MOBILE FALLBACK */}
+      {/* Responsive fallback (stack) */}
       <style jsx>{`
         @media (max-width: 980px) {
           section {
-            flex-direction: column !important;
+            flex-direction: column;
           }
           section > div {
-            min-width: 0 !important;
             flex: 1 1 auto !important;
+            min-width: 0 !important;
           }
         }
       `}</style>
