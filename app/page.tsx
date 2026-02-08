@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import UploadBox from "./components/UploadBox";
-import ResultPanel from "./components/ResultPanel";
-import PromptWithMic from "./components/PromptWithMic";
+import UploadBox from "../components/UploadBox";
+import ResultPanel from "../components/ResultPanel";
+import PromptWithMic from "../components/PromptWithMic";
 
 type BgMode = "dark" | "grey";
 
