@@ -35,8 +35,8 @@ export async function POST(req: Request) {
     const inspiration = form.get("inspiration") as File | null;
 
     const prompt = String(form.get("prompt") ?? "").trim();
-    const nRaw = Number(form.get("n") ?? 4);
-    const n = Number.isFinite(nRaw) ? Math.min(Math.max(nRaw, 1), 8) : 4;
+    const variationsRaw = form.get("variations");
+    const n = Math.min(4, Math.max(1, Number(variationsRaw ?? 1)));
 
     if (!accessory || !material) {
       return badRequest("Accessory + Material are required.");

@@ -77,7 +77,7 @@ export default function Page() {
       if (sole) fd.append("sole", sole);
       if (inspiration) fd.append("inspiration", inspiration);
       if (prompt?.trim()) fd.append("prompt", prompt.trim());
-      fd.append("variations", String(v));
+      fd.append("variations", String(variations));
 
       const res = await fetch("/api/generate", {
         method: "POST",
