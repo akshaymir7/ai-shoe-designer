@@ -72,7 +72,7 @@ export default function Page() {
       setLoading(true);
 
       const fd = new FormData();
-      fd.append("hardware", hardware);
+      fd.append("accessory", hardware);
       fd.append("material", material);
       if (sole) fd.append("sole", sole);
       if (inspiration) fd.append("inspiration", inspiration);
