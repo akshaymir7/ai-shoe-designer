@@ -498,3 +498,120 @@ html, body {
     margin-top: 20px;
   }
 }
+/* ==========================
+   Prompt editor card (polish)
+   ========================== */
+
+.promptCard {
+  margin-top: 14px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25) inset;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.promptCardTop {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.promptCardTitle {
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.promptCardSub {
+  font-size: 13px;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.promptTextarea {
+  width: 100%;
+  border-radius: 14px;
+  padding: 12px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(0, 0, 0, 0.35);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 14px;
+  line-height: 1.4;
+  outline: none;
+  resize: vertical;
+  min-height: 92px;
+}
+
+.promptTextarea:focus {
+  border-color: rgba(120, 190, 255, 0.55);
+  box-shadow: 0 0 0 4px rgba(120, 190, 255, 0.12);
+}
+
+.promptActions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+/* Buttons (reused) */
+.btnPrimary,
+.btnGhost {
+  height: 38px;
+  padding: 0 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  cursor: pointer;
+  transition: transform 120ms ease, background 160ms ease, opacity 160ms ease,
+    border-color 160ms ease;
+}
+
+.btnPrimary {
+  background: rgba(120, 190, 255, 0.22);
+  border-color: rgba(120, 190, 255, 0.5);
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.btnPrimary:hover:not(:disabled) {
+  background: rgba(120, 190, 255, 0.30);
+  transform: translateY(-1px);
+}
+
+.btnGhost {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.86);
+}
+
+.btnGhost:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.10);
+  transform: translateY(-1px);
+}
+
+.btnPrimary:disabled,
+.btnGhost:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Mobile */
+@media (max-width: 780px) {
+  .promptActions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .btnPrimary,
+  .btnGhost {
+    width: 100%;
+  }
+}
