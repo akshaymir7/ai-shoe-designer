@@ -165,6 +165,15 @@ export default function Page() {
   a.click();
   document.body.removeChild(a);
 }
+function cleanPrompt(input: string) {
+  return input
+    .replace(/\u00A0/g, " ")                  // NBSP
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")    // zero-width chars
+    .replace(/[“”]/g, '"')                    // smart quotes
+    .replace(/[‘’]/g, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
  return (
   <div className="page">
