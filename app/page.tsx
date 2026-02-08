@@ -1,11 +1,16 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import UploadBox from "../components/UploadBox";
 import ResultPanel from "../components/ResultPanel";
 import PromptWithMic from "../components/PromptWithMic";
 
 type BgMode = "dark" | "grey";
+
+type ApiResponse =
+  | { ok: true; images: string[] }
+  | { ok: false; error: string };
+
 const SUPPORTED_TYPES = new Set([
   "image/jpeg",
   "image/jpg",
@@ -14,9 +19,9 @@ const SUPPORTED_TYPES = new Set([
 ]);
 
 function isSupportedImage(f: File | null) {
-  return !!f && (
-    SUPPORTED_TYPES.has(f.type) ||
-    /\.(jpe?g|png|webp)$/i.test(f.name)
+  return (
+    !!f &&
+    (SUPPORTED_TYPES.has(f.type) || /\.(jpe?g|png|webp)$/i.test(f.name))
   );
 }
 
@@ -24,9 +29,15 @@ function fileTypeLabel(f: File) {
   return f.type ? `${f.type} (${f.name})` : f.name;
 }
 
-type ApiResponse =
-  | { ok: true; images: string[] }
-  | { ok: false; error: string };
+// mobile-safe prompt cleaning (NBSP, zero-width, etc.)
+function cleanPrompt(s: string) {
+  return (s ?? "")
+    .replace(/\u00A0/g, " ")
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
 export default function Page() {
   const [hardware, setHardware] = useState<File | null>(null);
@@ -44,7 +55,8 @@ export default function Page() {
   const [bgMode, setBgMode] = useState<BgMode>("dark");
   const [errorMsg, setErrorMsg] = useState<string>("");
 
-  // Keep selection valid as images change
+  const lastPromptRef = useRef<string>("");
+
   useEffect(() => {
     if (!images?.length) {
       setSelectedIndex(0);
@@ -53,15 +65,13 @@ export default function Page() {
     setSelectedIndex((prev) => Math.min(prev, images.length - 1));
   }, [images]);
 
+  useEffect(() => {
+    if (hardware && material) setErrorMsg("");
+  }, [hardware, material]);
+
   const canGenerate = useMemo(() => {
     return Boolean(hardware && material) && !loading;
   }, [hardware, material, loading]);
-
-  useEffect(() => {
-  if (hardware && material) {
-    setErrorMsg("");
-  }
-}, [hardware, material]);
 
   function resetAll() {
     setHardware(null);
@@ -74,330 +84,192 @@ export default function Page() {
     setErrorMsg("");
   }
 
-  // iOS Safari-safe validation (fixes mobile error)
-if (!hardware || !material) {
-  setErrorMsg("Accessory + Material are required.");
-  return;
-}
-
-if (!isSupportedImage(hardware)) {
-  setErrorMsg(
-    `Unsupported Accessory format: ${fileTypeLabel(hardware)}. 
-Please upload JPG / PNG / WEBP (not HEIC).`
-  );
-  return;
-}
-
-if (!isSupportedImage(material)) {
-  setErrorMsg(
-    `Unsupported Material format: ${fileTypeLabel(material)}. 
-Please upload JPG / PNG / WEBP (not HEIC).`
-  );
-  return;
-}
-
-if (sole && !isSupportedImage(sole)) {
-  setErrorMsg(
-    `Unsupported Sole format: ${fileTypeLabel(sole)}.`
-  );
-  return;
-}
-
-if (inspiration && !isSupportedImage(inspiration)) {
-  setErrorMsg(
-    `Unsupported Inspiration format: ${fileTypeLabel(inspiration)}.`
-  );
-  return;
-}
-  async function handleGenerate() {
-    setErrorMsg("");
-
+  async function generate() {
     if (!hardware || !material) {
-      setErrorMsg("Hardware + Material are required.");
+      setErrorMsg("Accessory + Material are required.");
       return;
     }
 
-    // clamp variations to allowed set
-    const v = [1, 2, 4].includes(variations) ? variations : 2;
+    if (!isSupportedImage(hardware)) {
+      setErrorMsg(`Unsupported accessory image: ${fileTypeLabel(hardware)}`);
+      return;
+    }
+    if (!isSupportedImage(material)) {
+      setErrorMsg(`Unsupported material image: ${fileTypeLabel(material)}`);
+      return;
+    }
+    if (sole && !isSupportedImage(sole)) {
+      setErrorMsg(`Unsupported sole image: ${fileTypeLabel(sole)}`);
+      return;
+    }
+    if (inspiration && !isSupportedImage(inspiration)) {
+      setErrorMsg(`Unsupported inspiration image: ${fileTypeLabel(inspiration)}`);
+      return;
+    }
+
+    const safePrompt = cleanPrompt(prompt);
+    lastPromptRef.current = safePrompt;
+
+    setLoading(true);
+    setErrorMsg("");
 
     try {
-      setLoading(true);
-
       const fd = new FormData();
+
+      // API expects accessory + material
       fd.append("accessory", hardware);
       fd.append("material", material);
       if (sole) fd.append("sole", sole);
       if (inspiration) fd.append("inspiration", inspiration);
-      if (prompt?.trim()) fd.append("prompt", prompt.trim());
-      fd.append("variations", String(variations));
 
-      const res = await fetch("/api/generate", {
-        method: "POST",
-        body: fd,
-      });
+      fd.append("prompt", safePrompt);
+
+      // support both server variants (n/variations)
+      fd.append("variations", String(variations));
+      fd.append("n", String(variations));
+
+      // IMPORTANT for iOS Safari:
+      const res = await fetch("/api/generate", { method: "POST", body: fd });
 
       const data = (await res.json()) as ApiResponse;
 
-      if (!data.ok) {
-        setErrorMsg(data.error || "Generation failed.");
+      if (!res.ok || data.ok === false) {
+        setErrorMsg(data.ok === false ? data.error : `Request failed (${res.status})`);
         return;
       }
 
-      setImages(Array.isArray(data.images) ? data.images : []);
+      setImages(data.images || []);
       setSelectedIndex(0);
-    } catch (e: any) {
-      setErrorMsg(e?.message || "Something went wrong.");
+    } catch (err: any) {
+      const raw = String(err?.message || err || "Unknown error");
+      setErrorMsg(raw);
     } finally {
       setLoading(false);
     }
   }
 
-  function handleDownload() {
+  function onDownload() {
     if (!images?.length) return;
-    const url = images[selectedIndex];
+    const url = images[selectedIndex] || images[0];
     if (!url) return;
-
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `design-${selectedIndex + 1}.png`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+    window.open(url, "_blank", "noopener,noreferrer");
   }
 
   return (
-    <main
-      style={{
-        minHeight: "100vh",
-        padding: "28px 24px 40px",
-        color: "rgba(255,255,255,0.92)",
-      }}
-    >
-      {/* Header */}
-      <header style={{ marginBottom: 18, maxWidth: 1200 }}>
-        <div
-          style={{
-            fontSize: 42,
-            fontWeight: 900,
-            letterSpacing: "0.08em",
-            textTransform: "uppercase",
-            lineHeight: 1.05,
-          }}
-        >
-          AI SHOE
-          <br />
-          DESIGNER
-        </div>
-
-        <div
-          style={{
-            marginTop: 10,
-            fontSize: 16,
-            fontWeight: 500,
-            letterSpacing: "0.02em",
-            opacity: 0.85,
-            maxWidth: 720,
-          }}
-        >
+    <div className="page">
+      {/* Header area (keep your existing header styles in globals.css) */}
+      <div className="hero">
+        <div className="heroTitle">AI SHOE DESIGNER</div>
+        <div className="heroSub">
           Upload design references and generate footwear concepts instantly.
         </div>
-      </header>
 
-      {/* Top actions */}
-      <div
-        style={{
-          display: "flex",
-          gap: 14,
-          alignItems: "center",
-          flexWrap: "wrap",
-          marginBottom: 18,
-          maxWidth: 1200,
-        }}
-      >
-        <button className="btn ghost" onClick={resetAll} disabled={loading}>
-          Reset
-        </button>
+        <div className="topActions">
+          <button className="btn" onClick={resetAll} disabled={loading}>
+            Reset
+          </button>
 
-        <button
-          className="btn primary"
-          onClick={handleGenerate}
-          disabled={!canGenerate}
-        >
-          {loading ? "Generating…" : "Generate"}
-        </button>
-
-        {/* Variations belongs with Generate */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            marginLeft: 6,
-          }}
-        >
-          <div
-            style={{
-              fontSize: 12,
-              fontWeight: 800,
-              letterSpacing: "0.12em",
-              textTransform: "uppercase",
-              opacity: 0.8,
-            }}
+          <button
+            className={`btn btnPrimary ${!canGenerate ? "btnDisabled" : ""}`}
+            onClick={generate}
+            disabled={!canGenerate}
           >
-            Design Variations
+            {loading ? "Generating..." : "Generate"}
+          </button>
+
+          <div className="variationGroup">
+            <div className="variationLabel">DESIGN VARIATIONS</div>
+            <select
+              className="select"
+              value={variations}
+              onChange={(e) => setVariations(Number(e.target.value))}
+              disabled={loading}
+            >
+              <option value={1}>1</option>
+              <option value={2}>2</option>
+              <option value={3}>3</option>
+              <option value={4}>4</option>
+            </select>
           </div>
-
-          <select
-            value={variations}
-            onChange={(e) => setVariations(Number(e.target.value))}
-            style={{
-              height: 36,
-              borderRadius: 12,
-              padding: "0 12px",
-              fontWeight: 800,
-              letterSpacing: "0.02em",
-              background: "rgba(255,255,255,0.08)",
-              color: "rgba(255,255,255,0.92)",
-              border: "1px solid rgba(255,255,255,0.18)",
-              outline: "none",
-            }}
-          >
-            <option value={1}>1</option>
-            <option value={2}>2</option>
-            <option value={4}>4</option>
-          </select>
         </div>
 
-        {/* Inline error (no annoying alert/json popup) */}
-        {errorMsg ? (
-          <div
-            style={{
-              marginLeft: "auto",
-              padding: "10px 12px",
-              borderRadius: 12,
-              border: "1px solid rgba(255,255,255,0.18)",
-              background: "rgba(0,0,0,0.25)",
-              fontSize: 13,
-              fontWeight: 650,
-              letterSpacing: "0.02em",
-              color: "rgba(255,255,255,0.9)",
-              maxWidth: 520,
-            }}
-          >
-            {errorMsg}
-          </div>
-        ) : (
-          <div style={{ marginLeft: "auto" }} />
-        )}
+        {!!errorMsg && <div className="errorBanner">{errorMsg}</div>}
       </div>
 
-      {/* Main layout */}
-      <section
-        style={{
-          display: "flex",
-          gap: 18,
-          alignItems: "stretch",
-          maxWidth: 1200,
-        }}
-      >
-        {/* Left panel */}
-        <div style={{ flex: "0 0 520px", minWidth: 360 }}>
-          <div className="panel">
-            <div
-              className="panelHeader"
-              style={{
-                fontSize: 14,
-                fontWeight: 900,
-                letterSpacing: "0.14em",
-                textTransform: "uppercase",
-              }}
-            >
-              Design inputs
-            </div>
+      <div className="grid">
+        {/* LEFT panel */}
+        <div className="panel">
+          <div className="panelHeader">
+            <div className="panelTitle">DESIGN INPUTS</div>
+          </div>
 
-            <div className="panelBody">
-              <UploadBox
-                label="Hardware"
-                required
-                file={hardware}
-                onChange={setHardware}
-              />
-
-              <UploadBox
-                label="Material"
-                required
-                file={material}
-                onChange={setMaterial}
-              />
-
-              <UploadBox label="Sole" file={sole} onChange={setSole} />
-
-              <UploadBox
-                label="Inspiration"
-                file={inspiration}
-                onChange={setInspiration}
-              />
-
-              <div style={{ marginTop: 14 }}>
-                <div
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 850,
-                    letterSpacing: "0.12em",
-                    textTransform: "uppercase",
-                    opacity: 0.78,
-                    marginBottom: 8,
-                  }}
-                >
-                  Design notes
-                </div>
-
-                <div
-                  style={{
-                    fontSize: 13,
-                    opacity: 0.75,
-                    marginBottom: 8,
-                    lineHeight: 1.45,
-                  }}
-                >
-                  Example: “Use the buckle from image 1. Use only the material
-                  texture from image 2. Keep the sole shape from image 3. Make a
-                  ladies ballerina. Realistic photoshoot.”
-                </div>
-
-                <PromptWithMic value={prompt} onChange={setPrompt} />
-              </div>
-            </div>
+          <div className="panelBody">
+            <UploadBox label="Hardware" required file={hardware} onChange={setHardware} />
+            <UploadBox label="Material" required file={material} onChange={setMaterial} />
+            <UploadBox label="Sole" file={sole} onChange={setSole} />
+            <UploadBox label="Inspiration" file={inspiration} onChange={setInspiration} />
           </div>
         </div>
 
-        {/* Right panel */}
-        <div style={{ flex: 1, minWidth: 360 }}>
-          <ResultPanel
-            title="RESULT"
-            images={images}
-            loading={loading}
-            selectedIndex={selectedIndex}
-            onSelect={setSelectedIndex}
-            bgMode={bgMode}
-            onBgChange={setBgMode}
-            onDownload={handleDownload}
-          />
-        </div>
-      </section>
+        {/* RIGHT panel */}
+        <div className="panel">
+          <div className="panelHeader">
+            <div className="panelTitle">RESULT</div>
+          </div>
 
-      {/* Responsive fallback (stack) */}
-      <style jsx>{`
-        @media (max-width: 980px) {
-          section {
-            flex-direction: column;
-          }
-          section > div {
-            flex: 1 1 auto !important;
-            min-width: 0 !important;
-          }
-        }
-      `}</style>
-    </main>
+          <div className="panelBody">
+            <ResultPanel
+              title=""
+              images={images}
+              loading={loading}
+              selectedIndex={selectedIndex}
+              onSelect={setSelectedIndex}
+              bgMode={bgMode}
+              onBgChange={setBgMode}
+              onDownload={onDownload}
+            />
+
+            {/* Prompt editor under result */}
+            <div className="panel" style={{ padding: 0 }}>
+              <div className="panelHeader">
+                <div className="panelTitle">PROMPT</div>
+                <div className="panelSubtitle">
+                  Edit the prompt and regenerate using the same uploaded references.
+                </div>
+              </div>
+
+              <div className="panelBody">
+                <PromptWithMic
+                  value={prompt}
+                  onChange={setPrompt}
+                  placeholder={`Example: "Make a ladies ballerina. Use buckle from hardware. Use only the texture from material. Keep the sole shape. Realistic photoshoot."`}
+                />
+
+                <div className="promptActions">
+                  <button
+                    className={`btn btnPrimary ${loading ? "btnDisabled" : ""}`}
+                    onClick={generate}
+                    disabled={loading}
+                  >
+                    Regenerate
+                  </button>
+                  <button className="btn" onClick={() => setPrompt("")} disabled={loading}>
+                    Clear
+                  </button>
+                  <button
+                    className="btn"
+                    onClick={() => setPrompt(lastPromptRef.current || "")}
+                    disabled={loading}
+                  >
+                    Reset to last prompt
+                  </button>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
