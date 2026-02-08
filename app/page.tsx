@@ -40,6 +40,12 @@ export default function Page() {
     return Boolean(hardware && material) && !loading;
   }, [hardware, material, loading]);
 
+  useEffect(() => {
+  if (hardware && material) {
+    setErrorMsg("");
+  }
+}, [hardware, material]);
+
   function resetAll() {
     setHardware(null);
     setMaterial(null);
