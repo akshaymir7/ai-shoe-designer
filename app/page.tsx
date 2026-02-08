@@ -6,6 +6,23 @@ import ResultPanel from "../components/ResultPanel";
 import PromptWithMic from "../components/PromptWithMic";
 
 type BgMode = "dark" | "grey";
+const SUPPORTED_TYPES = new Set([
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/webp",
+]);
+
+function isSupportedImage(f: File | null) {
+  return !!f && (
+    SUPPORTED_TYPES.has(f.type) ||
+    /\.(jpe?g|png|webp)$/i.test(f.name)
+  );
+}
+
+function fileTypeLabel(f: File) {
+  return f.type ? `${f.type} (${f.name})` : f.name;
+}
 
 type ApiResponse =
   | { ok: true; images: string[] }
@@ -57,6 +74,41 @@ export default function Page() {
     setErrorMsg("");
   }
 
+  // iOS Safari-safe validation (fixes mobile error)
+if (!hardware || !material) {
+  setErrorMsg("Accessory + Material are required.");
+  return;
+}
+
+if (!isSupportedImage(hardware)) {
+  setErrorMsg(
+    `Unsupported Accessory format: ${fileTypeLabel(hardware)}. 
+Please upload JPG / PNG / WEBP (not HEIC).`
+  );
+  return;
+}
+
+if (!isSupportedImage(material)) {
+  setErrorMsg(
+    `Unsupported Material format: ${fileTypeLabel(material)}. 
+Please upload JPG / PNG / WEBP (not HEIC).`
+  );
+  return;
+}
+
+if (sole && !isSupportedImage(sole)) {
+  setErrorMsg(
+    `Unsupported Sole format: ${fileTypeLabel(sole)}.`
+  );
+  return;
+}
+
+if (inspiration && !isSupportedImage(inspiration)) {
+  setErrorMsg(
+    `Unsupported Inspiration format: ${fileTypeLabel(inspiration)}.`
+  );
+  return;
+}
   async function handleGenerate() {
     setErrorMsg("");
 
