@@ -106,12 +106,17 @@ export default function Page() {
       setErrorMsg(`Unsupported inspiration image: ${fileTypeLabel(inspiration)}`);
       return;
     }
-
     const safePrompt = cleanPrompt(prompt);
-    lastPromptRef.current = safePrompt;
 
-    setLoading(true);
-    setErrorMsg("");
+   function cleanPrompt(input: string) {
+  return (input ?? "")
+    .normalize("NFKC")                 // ✅ critical for iOS
+    .replace(/\u00A0/g, " ")            // NBSP
+    .replace(/[\u200B-\u200D\uFEFF]/g, "") // zero-width chars
+    .replace(/[\u2028\u2029]/g, "\n")   // iOS line separators
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
     try {
       const fd = new FormData();
