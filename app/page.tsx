@@ -29,11 +29,13 @@ function fileTypeLabel(f: File) {
   return f.type ? `${f.type} (${f.name})` : f.name;
 }
 
-// mobile-safe prompt cleaning (NBSP, zero-width, etc.)
-function cleanPrompt(s: string) {
-  return (s ?? "")
-    .replace(/\u00A0/g, " ")
-    .replace(/[\u200B-\u200D\uFEFF]/g, "")
+// ✅ iOS/mobile-safe prompt cleaning
+function cleanPrompt(input: string) {
+  return (input ?? "")
+    .normalize("NFKC")
+    .replace(/\u00A0/g, " ") // NBSP
+    .replace(/[\u200B-\u200D\uFEFF]/g, "") // zero-width
+    .replace(/[\u2028\u2029]/g, "\n") // iOS line/para separators
     .replace(/\r\n/g, "\n")
     .replace(/\s+/g, " ")
     .trim();
@@ -57,6 +59,7 @@ export default function Page() {
 
   const lastPromptRef = useRef<string>("");
 
+  // keep selection valid as images change
   useEffect(() => {
     if (!images?.length) {
       setSelectedIndex(0);
@@ -65,6 +68,7 @@ export default function Page() {
     setSelectedIndex((prev) => Math.min(prev, images.length - 1));
   }, [images]);
 
+  // clear error once required files exist
   useEffect(() => {
     if (hardware && material) setErrorMsg("");
   }, [hardware, material]);
@@ -82,46 +86,56 @@ export default function Page() {
     setImages([]);
     setSelectedIndex(0);
     setErrorMsg("");
+    lastPromptRef.current = "";
+  }
+
+  function downloadSelected() {
+    const url = images[selectedIndex];
+    if (!url) return;
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `ai-shoe-design-${selectedIndex + 1}.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   }
 
   async function generate() {
-    if (!hardware || !material) {
-      setErrorMsg("Accessory + Material are required.");
-      return;
-    }
-
-    if (!isSupportedImage(hardware)) {
-      setErrorMsg(`Unsupported accessory image: ${fileTypeLabel(hardware)}`);
-      return;
-    }
-    if (!isSupportedImage(material)) {
-      setErrorMsg(`Unsupported material image: ${fileTypeLabel(material)}`);
-      return;
-    }
-    if (sole && !isSupportedImage(sole)) {
-      setErrorMsg(`Unsupported sole image: ${fileTypeLabel(sole)}`);
-      return;
-    }
-    if (inspiration && !isSupportedImage(inspiration)) {
-      setErrorMsg(`Unsupported inspiration image: ${fileTypeLabel(inspiration)}`);
-      return;
-    }
-    const safePrompt = cleanPrompt(prompt);
-
-   function cleanPrompt(input: string) {
-  return (input ?? "")
-    .normalize("NFKC")                 // ✅ critical for iOS
-    .replace(/\u00A0/g, " ")            // NBSP
-    .replace(/[\u200B-\u200D\uFEFF]/g, "") // zero-width chars
-    .replace(/[\u2028\u2029]/g, "\n")   // iOS line separators
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
     try {
-      const fd = new FormData();
+      setErrorMsg("");
 
-      // API expects accessory + material
+      if (!hardware || !material) {
+        setErrorMsg("Accessory + Material are required.");
+        return;
+      }
+
+      // Validate file types
+      if (!isSupportedImage(hardware)) {
+        setErrorMsg(`Unsupported hardware image: ${fileTypeLabel(hardware)}`);
+        return;
+      }
+      if (!isSupportedImage(material)) {
+        setErrorMsg(`Unsupported material image: ${fileTypeLabel(material)}`);
+        return;
+      }
+      if (sole && !isSupportedImage(sole)) {
+        setErrorMsg(`Unsupported sole image: ${fileTypeLabel(sole)}`);
+        return;
+      }
+      if (inspiration && !isSupportedImage(inspiration)) {
+        setErrorMsg(
+          `Unsupported inspiration image: ${fileTypeLabel(inspiration)}`
+        );
+        return;
+      }
+
+      const safePrompt = cleanPrompt(prompt);
+      lastPromptRef.current = safePrompt;
+
+      setLoading(true);
+
+      const fd = new FormData();
       fd.append("accessory", hardware);
       fd.append("material", material);
       if (sole) fd.append("sole", sole);
@@ -129,202 +143,175 @@ export default function Page() {
 
       fd.append("prompt", safePrompt);
 
-      // support both server variants (n/variations)
+      // support both server variants
       fd.append("variations", String(variations));
       fd.append("n", String(variations));
 
-      // IMPORTANT for iOS Safari:
       const res = await fetch("/api/generate", { method: "POST", body: fd });
 
-      const data = (await res.json()) as ApiResponse;
+      // ✅ JSON-safe parsing (handles HTML/text like 413)
+      const contentType = res.headers.get("content-type") || "";
+      const raw = await res.text();
 
-      if (!res.ok || data.ok === false) {
-        setErrorMsg(data.ok === false ? data.error : `Request failed (${res.status})`);
+      let data: ApiResponse | null = null;
+      if (contentType.includes("application/json")) {
+        try {
+          data = JSON.parse(raw) as ApiResponse;
+        } catch {
+          data = null;
+        }
+      }
+
+      if (!res.ok) {
+        const msg =
+          (data && "error" in data && data.error) ||
+          raw?.slice(0, 240) ||
+          `Request failed (${res.status})`;
+        setErrorMsg(msg);
         return;
       }
 
-      setImages(data.images || []);
+      if (!data) {
+        setErrorMsg(raw?.slice(0, 240) || "Server returned non-JSON response.");
+        return;
+      }
+
+      if (!data.ok) {
+        setErrorMsg(data.error || "Generation failed.");
+        return;
+      }
+
+      setImages(Array.isArray(data.images) ? data.images : []);
       setSelectedIndex(0);
     } catch (err: any) {
-      const raw = String(err?.message || err || "Unknown error");
-      setErrorMsg(raw);
+      setErrorMsg(err?.message || String(err));
     } finally {
       setLoading(false);
     }
   }
 
-  function onDownload() {
-    if (!images?.length) return;
-    const url = images[selectedIndex] || images[0];
-    if (!url) return;
-    window.open(url, "_blank", "noopener,noreferrer");
-  }
-  function downloadSelected() {
-  if (!images.length) return;
-
-  const url = images[selectedIndex];
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `ai-shoe-design-${selectedIndex + 1}.png`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-}
-function cleanPrompt(input: string) {
-  return input
-    .replace(/\u00A0/g, " ")                  // NBSP
-    .replace(/[\u200B-\u200D\uFEFF]/g, "")    // zero-width chars
-    .replace(/[“”]/g, '"')                    // smart quotes
-    .replace(/[‘’]/g, "'")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
- return (
-  <div className="page">
-    {/* Header */}
-    <header className="header">
-      <div>
-        <h1 className="title">AI SHOE DESIGNER</h1>
-        <p className="subtitle">
-          Upload design references and generate footwear concepts instantly.
-        </p >
-      </div>
-
-      <div className="topActions">
-        <button className="btn" onClick={resetAll} disabled={loading}>
-          Reset
-        </button>
-
-        <button className="btnPrimary" onClick={generate} disabled={!canGenerate}>
-          {loading ? "Generating..." : "Generate"}
-        </button>
-
-        <div className="variations">
-          <span className="variationsLabel">DESIGN VARIATIONS</span>
-          <select
-            className="select"
-            value={variations}
-            onChange={(e) => setVariations(Number(e.target.value))}
-            disabled={loading}
-          >
-            {[1, 2, 3, 4].map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
-          </select>
+  return (
+    <div className="page">
+      <header className="header">
+        <div className="headerLeft">
+          <h1 className="title">AI SHOE DESIGNER</h1>
+          <p className="subtitle">
+            Upload references, add design notes, then generate. Hardware +
+            Material are required.
+          </p >
         </div>
-      </div>
 
-      {!!errorMsg && <div className="errorBanner">{errorMsg}</div>}
-    </header>
+        <div className="headerRight">
+          <button className="btn" onClick={resetAll} disabled={loading}>
+            Reset
+          </button>
+          <button className="btnPrimary" onClick={generate} disabled={!canGenerate}>
+            {loading ? "Generating…" : "Generate"}
+          </button>
 
-    {/* ✅ THIS is the important part: 2-column grid */}
-    <main className="mainGrid">
-      {/* LEFT PANEL */}
-      <section className="panel">
-        <div className="panelHeader">DESIGN INPUTS</div>
-        <div className="panelBody">
-          <UploadBox label="Hardware" required file={hardware} onChange={setHardware} />
-          <UploadBox label="Material" required file={material} onChange={setMaterial} />
-          <UploadBox label="Sole" file={sole} onChange={setSole} />
-          <UploadBox label="Inspiration" file={inspiration} onChange={setInspiration} />
-
-          <div className="promptBlock">
-            <div className="promptLabel">Design notes</div>
-            <PromptWithMic value={prompt} onChange={setPrompt} />
+          <div className="fieldInline">
+            <div className="label">Design variations</div>
+            <select
+              className="select"
+              value={String(variations)}
+              onChange={(e) => setVariations(Number(e.target.value))}
+              disabled={loading}
+            >
+              {[1, 2, 3, 4].map((n) => (
+                <option key={n} value={String(n)}>
+                  {n}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
-      </section>
 
-      {/* RIGHT PANEL */}
-<section className="panel">
-  <ResultPanel
-    title="RESULT"
-    images={images}
-    loading={loading}
-    selectedIndex={selectedIndex}
-    onSelect={setSelectedIndex}
-    bgMode={bgMode}
-    onBgChange={setBgMode}
-    onDownload={downloadSelected}
-  />
+        {!!errorMsg && <div className="errorBanner">{errorMsg}</div>}
+      </header>
 
-  {/* Prompt editor under result */}
-  <div className="promptCard">
-    <div className="promptCardTop">
-      <div className="promptCardTitle">Prompt</div>
-      <div className="promptCardSub">
-        Edit the prompt and regenerate using the same uploaded references.
-      </div>
-    </div>
+      <main className="mainGrid">
+        {/* LEFT */}
+        <section className="panel">
+          <div className="panelHeader">DESIGN INPUTS</div>
+          <div className="panelBody">
+            <div className="stack">
+              <UploadBox label="Hardware" required file={hardware} onChange={setHardware} />
+              <UploadBox label="Material" required file={material} onChange={setMaterial} />
+              <UploadBox label="Sole" file={sole} onChange={setSole} />
+              <UploadBox label="Inspiration" file={inspiration} onChange={setInspiration} />
+            </div>
 
-    <textarea
-      className="promptTextarea"
-      value={prompt}
-      onChange={(e) => setPrompt(e.target.value)}
-      placeholder='Example: "Make a ladies ballerina. Use buckle from hardware..."'
-      rows={4}
-    />
+            <div className="promptBlock">
+              <div className="label">Design notes</div>
+              <PromptWithMic value={prompt} onChange={setPrompt} />
+            </div>
+          </div>
+        </section>
 
-    <div className="promptActions">
-      <button
-        className="btnPrimary"
-        disabled={!canGenerate || !prompt.trim()}
-        onClick={generate}
-      >
-        Regenerate
-      </button>
+        {/* RIGHT */}
+        <section className="panel">
+          <ResultPanel
+            title="RESULT"
+            images={images}
+            loading={loading}
+            selectedIndex={selectedIndex}
+            onSelect={setSelectedIndex}
+            bgMode={bgMode}
+            onBgChange={setBgMode}
+            onDownload={downloadSelected}
+          />
 
-      <button
-        className="btnGhost"
-        disabled={loading}
-        onClick={() => setPrompt("")}
-      >
-        Clear
-      </button>
-    </div>
-  </div>
-</section>
-{/* Prompt editor under result */}
-<div className="promptCard">
-  <div className="promptCardTop">
-    <div className="promptCardTitle">Prompt</div>
-    <div className="promptCardSub">
-      Edit the prompt and regenerate using the same uploaded references.
-    </div>
-  </div>
+          <div className="promptCard">
+            <div className="promptCardTop">
+              <div className="promptCardTitle">Prompt</div>
+              <div className="promptCardSub">
+                Edit prompt and regenerate using the same uploaded references.
+              </div>
+            </div>
 
-  <textarea
-    className="promptTextarea"
-    placeholder='Example: "Make a ladies ballerina. Use buckle from hardware. Use only the texture from material. Keep the sole shape. Realistic photoshoot."'
-    value={prompt}
-    onChange={(e) => setPrompt(e.target.value)}
-    rows={4}
-  />
+            <textarea
+              className="promptTextarea"
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              rows={4}
+              placeholder='Example: "Use hardware from box 1, only texture from box 2, keep sole shape from box 3. Realistic photoshoot."'
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
+            />
 
-  <div className="promptActions">
-    <button
-      className="btnPrimary"
-      disabled={!canGenerate || !prompt.trim()}
-      onClick={generate}
-      title={!prompt.trim() ? "Type a prompt to regenerate" : "Regenerate"}
-    >
-      Regenerate
-    </button>
+            <div className="promptActions">
+              <button
+                className="btnPrimary"
+                onClick={generate}
+                disabled={!canGenerate || loading}
+                title="Regenerate"
+              >
+                Regenerate
+              </button>
 
-    <button
-      className="btnGhost"
-      disabled={loading}
-      onClick={() => setPrompt("")}
-    >
-      Clear
-    </button>
-  </div>
-</div>
-       </main>
+              <button
+                className="btnGhost"
+                onClick={() => setPrompt("")}
+                disabled={loading}
+              >
+                Clear
+              </button>
+
+              {!!lastPromptRef.current && (
+                <button
+                  className="btn"
+                  onClick={() => setPrompt(lastPromptRef.current)}
+                  disabled={loading}
+                  title="Restore last used prompt"
+                >
+                  Restore
+                </button>
+              )}
+            </div>
+          </div>
+        </section>
+      </main>
     </div>
   );
 }
-
